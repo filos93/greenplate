@@ -141,7 +141,7 @@ Developed with ❤️ by
 
 ---
 
-## Acknowledgements
+## ✨ Acknowledgements
 
 - Spoonacular for recipe data
 - jsPDF for client-side PDF generation
