@@ -1,14 +1,10 @@
-<p align="center">
-  ./public/logo.svg
-</p>
-<h1 align="center">GreenPlate</h1>
-<p align="center">
-  <strong>Vegetarian recipe discovery, fridge matching, and PDF cookbook generation</strong>
-</p>
+<img src="public/logo.svg" alt="greenplate-app" width=200 />
+<h1>GreenPlate</h1>
+<p <strong>Vegetarian recipe discovery, fridge matching, and PDF cookbook generation</strong> </p>
 
 ---
 
-## Overview
+## 👀 Overview
 
 GreenPlate is a responsive web application for discovering and organizing vegetarian recipes.
 Users can search the Spoonacular recipe database, find dishes based on ingredients already available at home, save favorite recipes, 
@@ -67,34 +63,33 @@ and generate downloadable PDF cookbooks.
 greenplate/
 ├── api/
 │   └── spoonacular.js       # Serverless API proxy
-├── public/
-│   ├── logo.svg
-│   └── assets/
+├── public/                  # Public for images
+│   ├── flg-signature.svg
+│   └── logo.svg
 ├── src/
-│   ├── components/          # Reusable interface components
+│   ├── __mocks__/           # Mock data for testing
+│   ├── api/                 # API communication layer
+│   ├── components/          # Reusable interface components plus tests
+│   ├── context/             # APP context
+│   ├── hooks/               # Custom React hooks
 │   ├── pages/               # Application pages
-│   ├── services/            # API communication layer
+│   ├── utils/               # Shared utilities and PDF functions
 │   ├── hooks/               # Custom React hooks
 │   ├── utils/               # Shared utilities and PDF functions
 │   ├── styles/              # Global and component styles
 │   ├── App.jsx
-│   └── main.jsx
-├── .env.example
+│   ├── main.jsx
+│   └── setupTests.jsx
 ├── .gitignore
 ├── eslint.config.js
 ├── index.html
 ├── package.json
-├── vercel.json
 └── vite.config.js
 ```
 
 ---
 
 ## 📸 App Preview & Visual Highlights
-
-**Home**
-
-<img width="400" height="200" alt="" src="" />
 
 **My Veg Search**
 
@@ -127,7 +122,7 @@ greenplate/
 
 ---
 
-## License
+## 🔐 License
 
 This project is licensed under the MIT License. See the `LICENSE` file for details.
 
