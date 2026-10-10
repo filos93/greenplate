@@ -61,9 +61,6 @@ export function getRecipeSteps(recipe) {
 /**
  * Standardized single-recipe PDF generator for Search, Fridge, and Favorites
  */
-/**
- * Standardized single-recipe PDF generator for Search, Fridge, and Favorites
- */
 export const downloadRecipePDF = async (recipe) => {
   if (!recipe) return;
 
@@ -296,15 +293,18 @@ export const downloadRecipePDF = async (recipe) => {
   doc.save(`${cleanFilename}_recipe.pdf`);
 };
 
-/**
- * Unified batch exporter for Favorites (Single Multi-Page PDF Document)
- */
+
+// Unified batch exporter for Favorites (Single Multi-Page PDF Document), max 30 recipes per batch
 export const downloadFavoritesBatchPDF = async (favoritesList = []) => {
   if (!Array.isArray(favoritesList) || !favoritesList.length) return;
 
-  // 🌐 PRE-FETCH FULL DETAILS FOR ALL RECIPES IN BATCH
+  // CAP BATCH EXPORT AT 30 RECIPES MAXIMUM
+  const MAX_BATCH_LIMIT = 30;
+  const safeFavoritesList = favoritesList.slice(0, MAX_BATCH_LIMIT);
+
+  // PRE-FETCH FULL DETAILS FOR ALL RECIPES IN BATCH
   const enrichedFavorites = await Promise.all(
-    favoritesList.map(async (recipe) => {
+    safeFavoritesList.map(async (recipe) => {
       const hasInstructions =
         recipe?.analyzedInstructions?.[0]?.steps?.length > 0 ||
         (typeof recipe?.instructions === 'string' && recipe.instructions.trim().length > 0);
