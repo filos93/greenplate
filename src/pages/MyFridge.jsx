@@ -1,0 +1,335 @@
+import { useState, useRef, useEffect } from 'react';
+// import { mockFridgeResultsData as MOCK_FRIDGE_RESULTS } from '../__mocks__/mockData';
+import { searchByFridge } from '../api/spoonacular';
+import { cacheRecipes, getCachedRecipes } from '../utils/cache';
+import { useAppContext } from '../context/AppContext';
+import { RecipeCard } from '../components/RecipeCard';
+import { QuotaBadge } from '../components/QuotaBadge';
+import { isValidStructure, sanitizeInput } from '../utils/validators';
+import { canMakeApiCall, incrementQuota, getQuotaStatus } from '../utils/quota';
+
+// 20 Curated Vegetarian Staples
+const POPULAR_INGREDIENTS = [
+  'tofu', 'chickpeas', 'black beans', 'lentils', 
+  'spinach', 'broccoli', 'kale', 'zucchini', 
+  'garlic', 'onion', 'tomatoes', 'bell pepper', 
+  'mushrooms', 'sweet potato', 'feta', 'parmesan', 
+  'mozzarella', 'coconut milk', 'olive oil', 'soy sauce'
+];
+
+export function MyFridge() {
+  const [typedText, setTypedText] = useState('');
+  const [ingredients, setIngredients] = useState([]); 
+  const [results, setResults] = useState([]);
+  const [unrecognizedItems, setUnrecognizedItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [inputError, setInputError] = useState('');
+  const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
+  
+  const { toggleFavorite, favorites } = useAppContext();
+  const abortControllerRef = useRef(null);
+  const timerRef = useRef(null);
+
+  const MIN_ITEMS = 2;
+  const MAX_ITEMS = 5;
+
+  // Cleanup abort controller and timer on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, []);
+
+  const addIngredient = (rawItem) => {
+    if (loading || ingredients.length >= MAX_ITEMS) return;
+    
+    const cleaned = sanitizeInput(rawItem);
+    setInputError('');
+
+    if (!isValidStructure(cleaned)) {
+      setInputError('Invalid entry: Must be 2+ letters, max 2 words, no symbols or repeating letters.');
+      return;
+    }
+
+    if (!ingredients.includes(cleaned)) {
+      setIngredients((prev) => [...prev, cleaned]);
+      setTypedText('');
+    } else {
+      setInputError(`"${cleaned}" is already added.`);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addIngredient(typedText);
+    }
+  };
+
+  const removeIngredient = (indexToRemove) => {
+    if (loading) return;
+    setIngredients((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const handleSearch = (e) => {
+    if (e) e.preventDefault();
+
+    // IF ALREADY LOADING: STOP THE SEARCH IMMEDIATELY
+    if (loading) {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+      setLoading(false);
+      return;
+    }
+
+    let currentIngredients = [...ingredients];
+    if (typedText.trim() && currentIngredients.length < MAX_ITEMS) {
+      const cleaned = sanitizeInput(typedText);
+      if (isValidStructure(cleaned) && !currentIngredients.includes(cleaned)) {
+        currentIngredients.push(cleaned);
+      }
+    }
+
+    if (currentIngredients.length < MIN_ITEMS) return;
+
+    // RESET FORM INPUTS & CHIPS
+    setIngredients([]);
+    setTypedText('');
+    setInputError('');
+
+    setLoading(true);
+    setUnrecognizedItems([]);
+    abortControllerRef.current = new AbortController();
+
+    // CHECK DAILY QUOTA (Max 4 calls for MyFridge)
+    const hasQuota = canMakeApiCall('myfridge');
+    setIsQuotaExceeded(!hasQuota);
+
+    timerRef.current = setTimeout(async () => {
+      if (abortControllerRef.current.signal.aborted) return;
+
+      let finalResults = [];
+
+      try {
+        if (hasQuota) {
+          /* MOCK DATA CODE:
+          finalResults = [...MOCK_FRIDGE_RESULTS]
+            .sort((a, b) => {
+              if (b.usedIngredientCount !== a.usedIngredientCount) {
+                return b.usedIngredientCount - a.usedIngredientCount;
+              }
+              return a.missedIngredientCount - b.missedIngredientCount;
+            })
+            .slice(0, 10);
+          */
+
+          // LIVE SPOONACULAR API CALL
+          const rawResults = await searchByFridge(currentIngredients.join(','));
+          finalResults = (rawResults || []).slice(0, 10);
+
+          // Cache results for offline / quota exhaustion fallback
+          cacheRecipes(finalResults);
+          incrementQuota('myfridge');
+
+          const recognizedNames = new Set();
+          finalResults.forEach((recipe) => {
+            recipe.usedIngredients?.forEach((i) => recognizedNames.add(i.name.toLowerCase()));
+            recipe.unusedIngredients?.forEach((i) => recognizedNames.add(i.name.toLowerCase()));
+            recipe.extendedIngredients?.forEach((i) => recognizedNames.add((i.name || i.original || '').toLowerCase()));
+          });
+
+          const unrecognized = currentIngredients.filter((userChip) => {
+            const cleanChip = userChip.toLowerCase().trim();
+            return !Array.from(recognizedNames).some((recName) => recName.includes(cleanChip));
+          });
+
+          setUnrecognizedItems(unrecognized);
+        } else {
+          /* MOCK DATA OFFLINE FALLBACK:
+          const mainTerm = currentIngredients[0] || 'Fridge';
+          finalResults = Array.from({ length: 10 }, (_, i) => ({
+            id: 800 + i,
+            title: `${mainTerm.charAt(0).toUpperCase() + mainTerm.slice(1)} Dish ${i + 1} (Offline Mode)`,
+            image: 'https://via.placeholder.com/312x231',
+            summary: 'Offline fallback recipe available without consuming API quota.'
+          }));
+          */
+
+          // LOCAL CACHE OFFLINE FALLBACK
+          const cached = getCachedRecipes();
+          finalResults = cached.filter((recipe) => {
+            const ingredientNames = recipe.extendedIngredients?.map((ing) =>
+              (ing.name || ing.original || '').toLowerCase()
+            ) || [];
+
+            return currentIngredients.some((selected) =>
+              ingredientNames.some((ingName) => ingName.includes(selected.toLowerCase()))
+            );
+          });
+        }
+
+        if (!abortControllerRef.current.signal.aborted) {
+          setResults(finalResults);
+        }
+      } catch (error) {
+        if (!abortControllerRef.current.signal.aborted) {
+          console.error('Failed to fetch fridge recipes:', error);
+          
+          // Network error fallback to cached real recipes
+          const cached = getCachedRecipes();
+          const fallbackResults = cached.filter((recipe) => {
+            const ingredientNames = recipe.extendedIngredients?.map((ing) =>
+              (ing.name || ing.original || '').toLowerCase()
+            ) || [];
+
+            return currentIngredients.some((selected) =>
+              ingredientNames.some((ingName) => ingName.includes(selected.toLowerCase()))
+            );
+          });
+          setResults(fallbackResults);
+        }
+      } finally {
+        if (!abortControllerRef.current.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    }, 1200);
+  };
+  
+  const isSearchDisabled = ingredients.length < MIN_ITEMS && !typedText.trim();
+  const quotaStats = getQuotaStatus('myfridge');
+
+  return (
+    <div className="page">
+      {/* 🏷️ Header with Quota Badge on the right */}
+      <div className="page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+        <h2 className="page-title" style={{ margin: 0 }}>🥑 What's in My Fridge?</h2>
+        <QuotaBadge feature="myfridge" />
+      </div>
+
+      <div className="search-container">
+        <form onSubmit={handleSearch} className="chip-search-form">
+          <div className={`chips-wrapper ${inputError ? 'input-error' : ''} ${loading ? 'disabled' : ''}`}>
+            {ingredients.map((item, index) => (
+              <span key={item} className="ingredient-chip">
+                {item}
+                <button 
+                  type="button" 
+                  disabled={loading}
+                  onClick={() => removeIngredient(index)}
+                  className="chip-remove-btn"
+                  title="Remove ingredient"
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+
+            {ingredients.length < MAX_ITEMS && (
+              <input 
+                type="text" 
+                disabled={loading}
+                placeholder={ingredients.length === 0 ? "Type an ingredient & press Enter!" : "Add another..."} 
+                value={typedText}
+                onChange={(e) => {
+                  setTypedText(e.target.value);
+                  if (inputError) setInputError('');
+                }}
+                onKeyDown={handleKeyDown}
+                onBlur={() => {
+                  if (typedText.trim()) {
+                    addIngredient(typedText);
+                  }
+                }}
+                className="chip-input"
+              />
+            )}
+          </div>
+
+          {inputError && <p className="input-error-message">⚠️ {inputError}</p>}
+
+          <div className="quick-add-section">
+            <span className="quick-label">Or choose popular ingredients:</span>
+            <div className="quick-chips">
+              {POPULAR_INGREDIENTS.map((item) => {
+                const isAdded = ingredients.includes(item);
+                const isMaxed = ingredients.length >= MAX_ITEMS;
+
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    disabled={isAdded || isMaxed || loading}
+                    onClick={() => addIngredient(item)}
+                    className={`quick-chip-btn ${isAdded ? 'selected' : ''}`}
+                  >
+                    {isAdded ? '✓ ' : '+ '}{item}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="form-action-row">
+            <button 
+              type="submit" 
+              className={`search-btn ${loading ? 'stop-btn' : ''}`} 
+              disabled={!loading && isSearchDisabled}
+            >
+              {loading ? '⏳ Stop Search' : '🔍 Find Recipes'}
+            </button>
+            
+            <span className={`search-hint ${ingredients.length === MAX_ITEMS ? 'max-reached' : ''}`}>
+              {ingredients.length < MIN_ITEMS ? (
+                `Add at least ${MIN_ITEMS} ingredients (${ingredients.length}/${MAX_ITEMS})`
+              ) : (
+                `${ingredients.length}/${MAX_ITEMS} ingredients selected`
+              )}
+            </span>
+          </div>
+        </form>
+      </div>
+
+      {/* ⚡ Exact Quota Exceeded Banner matching Search */}
+      {isQuotaExceeded && (
+        <div style={{ margin: '1.5rem 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold', color: '#ff7b72', marginBottom: '0.5rem' }}>
+            <span>⚡</span>
+            <span>Daily API Quota Reached ({quotaStats.used}/{quotaStats.max} searches used):</span>
+          </div>
+          <p style={{ margin: 0, opacity: 0.9, lineHeight: 1.5 }}>
+            You're browsing in <strong>Offline Fallback Mode</strong>. You can still view, favorite, and export all offline recipes! Your live search quota resets automatically at midnight.
+          </p>
+        </div>
+      )}
+
+      {!isQuotaExceeded && unrecognizedItems.length > 0 && (
+        <div className="unrecognized-banner">
+          <span className="banner-icon">ℹ️</span>
+          <div>
+            <strong>Note on your search:</strong>
+            <p>
+              The following item{unrecognizedItems.length > 1 ? 's were' : ' was'} not recognized as active recipe ingredients in our database and {unrecognizedItems.length > 1 ? 'were' : 'was'} ignored:{' '}
+              <b>{unrecognizedItems.join(', ')}</b>.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="grid">
+        {results.map((recipe) => (
+          <RecipeCard key={recipe.id} recipe={recipe} />
+        ))}
+      </div>
+    </div>
+  );
+}

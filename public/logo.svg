@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+
+    <!-- Plate Rim Gradient -->
+    <linearGradient id="plateRimGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="50%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+
+    <!-- Leaf Main Gradient -->
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6ee7b7"/>
+      <stop offset="50%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#047857"/>
+    </linearGradient>
+
+    <!-- Secondary Leaf Highlight Gradient -->
+    <linearGradient id="leafHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#a7f3d0" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0.2"/>
+    </linearGradient>
+
+    <!-- Fork Metallic/Clean Gradient -->
+    <linearGradient id="forkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#cbd5e1"/>
+    </linearGradient>
+
+    <!-- Soft Glow Filter -->
+    <filter id="greenGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+
+    <!-- Drop Shadow for Plate -->
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Dark Rounded Container -->
+  <rect width="500" height="500" rx="100" fill="url(#bgGrad)"/>
+
+  <!-- Outer Plate Rim Glow -->
+  <circle cx="250" cy="250" r="175" fill="none" stroke="#10b981" stroke-width="2" opacity="0.2" filter="url(#greenGlow)"/>
+
+  <!-- Outer Plate Border -->
+  <circle cx="250" cy="250" r="170" fill="#0f172a" stroke="url(#plateRimGrad)" stroke-width="10" filter="url(#shadow)"/>
+
+  <!-- Inner Plate Groove -->
+  <circle cx="250" cy="250" r="135" fill="none" stroke="#334155" stroke-width="3" stroke-dasharray="8 6" opacity="0.6"/>
+
+  <!-- CENTER EMBLEM: Leaf + Integrated Fork -->
+  <g id="plateContent" transform="translate(0, 40)">
+    <!-- Left Leaf Half -->
+    <path d="M 250,115 C 180,115 150,175 150,230 C 150,275 185,305 250,305 Z" fill="url(#leafGrad)"/>
+
+    <!-- Right Leaf Half -->
+    <path d="M 250,115 C 320,115 350,175 350,230 C 350,275 315,305 250,305 Z" fill="url(#leafGrad)" opacity="0.85"/>
+
+    <!-- Leaf Inner Highlight -->
+    <path d="M 250,115 C 200,140 170,185 170,230 C 170,260 190,285 225,298 C 210,250 220,170 250,115 Z" fill="url(#leafHighlight)"/>
+
+    <!-- Central Stem -->
+    <path d="M 250,115 L 250,325" stroke="#047857" stroke-width="4" stroke-linecap="round"/>
+
+    <!-- Integrated Fork Silhouette -->
+    <g id="forkCutout" transform="translate(20, -5)">
+      <path d="M 235,175 L 235,215 C 235,225 243,233 253,233 L 253,285 C 253,289 256,292 260,292 C 264,292 267,289 267,285 L 267,233 C 277,233 285,225 285,215 L 285,175 C 285,172 282,170 279,170 C 276,170 274,172 274,175 L 274,210 C 274,212 272,214 270,214 C 268,214 266,212 266,210 L 266,175 C 266,172 263,170 260,170 C 257,170 254,172 254,175 L 254,210 C 254,212 252,214 250,214 C 248,214 246,212 246,210 L 246,175 C 246,172 243,170 240,170 C 237,170 235,172 235,175 Z" fill="url(#forkGrad)"/>
+    </g>
+
+    <!-- Sparkle Accent -->
+    <path d="M 320,140 Q 330,140 330,130 Q 330,140 340,140 Q 330,140 330,150 Q 330,140 320,140 Z" fill="#a7f3d0"/>
+  </g>
+</svg>
