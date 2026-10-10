@@ -1059,22 +1059,26 @@ body.dark .unrecognized-banner b,
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* --- MOBILE RESPONSIVE BREAKPOINT (Mobile & Tablet Portrait) --- */
-@media (max-width: 768px) {
-  .navbar {
-    flex-direction: column;
-    padding: 1rem;
-    gap: 1rem;
-  }
+/* ==========================================================================
+   NAVIGATION BAR
+   ========================================================================== */
 
-  .navbar .links {
-    flex-wrap: wrap;
-    justify-content: center;
-    width: 100%;
-  }
+/* Mobile First Base Styles (Default for viewports up to 768px) */
+.navbar {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  gap: 1rem;
 }
 
-/* --- DESKTOP MEDIA QUERIES (Tablet Landscape & Desktop) --- */
+.navbar .links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+}
+
+/* Desktop Styles (769px and above) */
 @media (min-width: 769px) {
   .navbar {
     flex-direction: row;
@@ -1089,10 +1093,13 @@ body.dark .unrecognized-banner b,
   }
 }
 
-/* --- ULTRA-NARROW SCREENS (Small Mobile Viewports) --- */
+/* ==========================================================================
+   BUTTON LAYOUTS
+   ========================================================================== */
+
+/* Compact UI for Small Mobile Viewports (<= 380px) */
 @media (max-width: 380px) {
   .card-btn:not(.card-btn-secondary) .btn-text,
-  button.remove-btn .btn-text,
   .remove-btn .btn-text {
     display: none;
   }
