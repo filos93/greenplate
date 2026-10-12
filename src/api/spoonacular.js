@@ -78,7 +78,8 @@ export const searchByFridge = async (ingredients) => {
     return data.results || [];
   } catch (error) {
     console.error('Failed to search by fridge ingredients:', error);
-    return [];
+    //return [];
+    throw error; // for display show when offline
   }
 };
 
@@ -90,7 +91,7 @@ export const getRecipeInformation = async (id) => {
     return data;
   } catch (error) {
     console.error(`Failed to fetch recipe info for ID ${id}:`, error);
-    return null;
+    throw error; // for display show when offline
   }
 };
 

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 // import { mockFridgeResultsData as MOCK_FRIDGE_RESULTS } from '../__mocks__/mockData';
 import { searchByFridge } from '../api/spoonacular';
-import { cacheRecipes, getCachedRecipes } from '../utils/cache';
+import { cacheRecipes, getMatchingCachedRecipes, getCachedRecipes } from '../utils/cache';
 import { useAppContext } from '../context/AppContext';
 import { RecipeCard } from '../components/RecipeCard';
 import { QuotaBadge } from '../components/QuotaBadge';
@@ -32,6 +32,18 @@ export function MyFridge() {
 
   const MIN_ITEMS = 2;
   const MAX_ITEMS = 5;
+
+  // Inside MyFridge component
+  useEffect(() => {
+    const hasQuota = canMakeApiCall('myfridge');
+    const isOffline = !navigator.onLine;
+
+    // If offline or quota exhausted on load, display all cached recipes by default
+    if (!hasQuota || isOffline) {
+      const allCached = getCachedRecipes();
+      setResults(allCached.slice(0, 20));
+    }
+  }, []);
 
   // Cleanup abort controller and timer on unmount
   useEffect(() => {
@@ -165,16 +177,7 @@ export function MyFridge() {
           */
 
           // LOCAL CACHE OFFLINE FALLBACK
-          const cached = getCachedRecipes();
-          finalResults = cached.filter((recipe) => {
-            const ingredientNames = recipe.extendedIngredients?.map((ing) =>
-              (ing.name || ing.original || '').toLowerCase()
-            ) || [];
-
-            return currentIngredients.some((selected) =>
-              ingredientNames.some((ingName) => ingName.includes(selected.toLowerCase()))
-            );
-          });
+          finalResults = getMatchingCachedRecipes(currentIngredients);
         }
 
         if (!abortControllerRef.current.signal.aborted) {
@@ -185,16 +188,7 @@ export function MyFridge() {
           console.error('Failed to fetch fridge recipes:', error);
           
           // Network error fallback to cached real recipes
-          const cached = getCachedRecipes();
-          const fallbackResults = cached.filter((recipe) => {
-            const ingredientNames = recipe.extendedIngredients?.map((ing) =>
-              (ing.name || ing.original || '').toLowerCase()
-            ) || [];
-
-            return currentIngredients.some((selected) =>
-              ingredientNames.some((ingName) => ingName.includes(selected.toLowerCase()))
-            );
-          });
+          const fallbackResults = getMatchingCachedRecipes(currentIngredients);
           setResults(fallbackResults);
         }
       } finally {

@@ -7,7 +7,7 @@ import {
 import { mockSearchVegRecipesData } from '../__mocks__/mockData';
 */
 import { getRecipeAutocomplete, searchVegRecipes } from '../api/spoonacular';
-import { cacheRecipes, searchCachedRecipes } from '../utils/cache';
+import { cacheRecipes, searchCachedRecipes, getCachedRecipes } from '../utils/cache';
 import { useDebounce } from '../hooks/useDebounce';
 import { RecipeCard } from '../components/RecipeCard';
 import { QuotaBadge } from '../components/QuotaBadge';
@@ -31,6 +31,19 @@ export function VegSearch() {
   
   const abortControllerRef = useRef(null);
   const timerRef = useRef(null);
+
+  // Inside VegSearch component
+  useEffect(() => {
+    const hasQuota = canMakeApiCall('search');
+    const isOffline = !navigator.onLine;
+
+    // If offline or quota exhausted on load, show all cached recipes by default
+    if (!hasQuota || isOffline) {
+      const allCached = getCachedRecipes();
+      setRecipes(allCached.slice(0, 20));
+      setSearched(true); // Ensures the results grid renders
+    }
+  }, []);
 
   // Cleanup abort controller and timer on unmount
   useEffect(() => {
@@ -196,9 +209,11 @@ export function VegSearch() {
           setRecipes(results);
         }
       } catch (error) {
-        console.error('Failed to fetch recipes:', error);
-          // Optional network error fallback to local cache
+        if (!abortControllerRef.current?.signal.aborted) {
+          console.error('Failed to fetch recipes:', error);
+          // Network error fallback to local cache
           setRecipes(searchCachedRecipes(cleaned));
+        }
       } finally {
         if (!abortControllerRef.current?.signal.aborted) {
           setLoading(false);

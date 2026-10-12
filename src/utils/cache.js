@@ -40,11 +40,11 @@ export function getCachedRecipes() {
 }
 
 /**
- * Search cached recipes by query string or matching ingredients
+ * Search cached recipes by query string or matching title/summary/ingredients
  */
 export function searchCachedRecipes(query = '') {
   const cached = getCachedRecipes();
-  if (!query || !query.trim()) return cached.slice(0, 10);
+  if (!query || !query.trim()) return cached.slice(0, 20);
 
   const cleanQuery = query.toLowerCase().trim();
 
@@ -52,9 +52,35 @@ export function searchCachedRecipes(query = '') {
     const titleMatch = recipe.title?.toLowerCase().includes(cleanQuery);
     const summaryMatch = recipe.summary?.toLowerCase().includes(cleanQuery);
     const ingredientMatch = recipe.extendedIngredients?.some((ing) =>
-      ing.original?.toLowerCase().includes(cleanQuery)
+      (ing.original || ing.name || '').toLowerCase().includes(cleanQuery)
     );
 
     return titleMatch || summaryMatch || ingredientMatch;
+  });
+}
+
+/**
+ * Filter cached recipes by matching an array of selected fridge ingredients
+ */
+export function getMatchingCachedRecipes(selectedIngredients = []) {
+  const cached = getCachedRecipes();
+
+  // If no ingredients are selected, return all cached recipes (up to 10)
+  if (!selectedIngredients || selectedIngredients.length === 0) {
+    return cached.slice(0, 20);
+  }
+
+  // Otherwise, filter by selected ingredients
+  return cached.filter((recipe) => {
+    const ingredientNames =
+      recipe.extendedIngredients?.map((ing) =>
+        (ing.name || ing.original || '').toLowerCase()
+      ) || [];
+
+    return selectedIngredients.some((selected) =>
+      ingredientNames.some((ingName) =>
+        ingName.includes(selected.toLowerCase().trim())
+      )
+    );
   });
 }
