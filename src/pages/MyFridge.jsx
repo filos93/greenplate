@@ -6,7 +6,7 @@ import { useAppContext } from '../context/AppContext';
 import { RecipeCard } from '../components/RecipeCard';
 import { QuotaBadge } from '../components/QuotaBadge';
 import { isValidStructure, sanitizeInput } from '../utils/validators';
-import { canMakeApiCall, incrementQuota, getQuotaStatus } from '../utils/quota';
+import { canMakeApiCall, incrementQuota, getQuotaStatus, setQuotaExceeded } from '../utils/quota';
 
 // 20 Curated Vegetarian Staples
 const POPULAR_INGREDIENTS = [
@@ -25,6 +25,7 @@ export function MyFridge() {
   const [loading, setLoading] = useState(false);
   const [inputError, setInputError] = useState('');
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   
   const { toggleFavorite, favorites } = useAppContext();
   const abortControllerRef = useRef(null);
@@ -36,13 +37,31 @@ export function MyFridge() {
   // Inside MyFridge component
   useEffect(() => {
     const hasQuota = canMakeApiCall('myfridge');
-    const isOffline = !navigator.onLine;
+    const offlineState = !navigator.onLine;
+
+    setIsOffline(offlineState);
+    setIsQuotaExceeded(!hasQuota);
 
     // If offline or quota exhausted on load, display all cached recipes by default
-    if (!hasQuota || isOffline) {
+    if (!hasQuota || offlineState) {
       const allCached = getCachedRecipes();
       setResults(allCached.slice(0, 20));
     }
+
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => {
+      setIsOffline(true);
+      const allCached = getCachedRecipes();
+      setResults(allCached.slice(0, 20));
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   // Cleanup abort controller and timer on unmount
@@ -69,8 +88,16 @@ export function MyFridge() {
     }
 
     if (!ingredients.includes(cleaned)) {
-      setIngredients((prev) => [...prev, cleaned]);
+      const updatedChips = [...ingredients, cleaned];
+      setIngredients(updatedChips);
       setTypedText('');
+
+      const hasQuota = canMakeApiCall('myfridge');
+      const offlineState = !navigator.onLine;
+
+      if (!hasQuota || offlineState) {
+        setResults(getMatchingCachedRecipes(updatedChips));
+      }
     } else {
       setInputError(`"${cleaned}" is already added.`);
     }
@@ -85,7 +112,15 @@ export function MyFridge() {
 
   const removeIngredient = (indexToRemove) => {
     if (loading) return;
-    setIngredients((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+    const updatedChips = ingredients.filter((_, idx) => idx !== indexToRemove);
+    setIngredients(updatedChips);
+
+    const hasQuota = canMakeApiCall('myfridge');
+    const offlineState = !navigator.onLine;
+
+    if (!hasQuota || offlineState) {
+      setResults(getMatchingCachedRecipes(updatedChips));
+    }
   };
 
   const handleSearch = (e) => {
@@ -122,9 +157,12 @@ export function MyFridge() {
     setUnrecognizedItems([]);
     abortControllerRef.current = new AbortController();
 
-    // CHECK DAILY QUOTA (Max 4 calls for MyFridge)
+    // CHECK DAILY QUOTA & ONLINE STATUS BEFORE CALL
     const hasQuota = canMakeApiCall('myfridge');
+    const offlineState = !navigator.onLine;
+
     setIsQuotaExceeded(!hasQuota);
+    setIsOffline(offlineState);
 
     timerRef.current = setTimeout(async () => {
       if (abortControllerRef.current.signal.aborted) return;
@@ -132,7 +170,7 @@ export function MyFridge() {
       let finalResults = [];
 
       try {
-        if (hasQuota) {
+        if (hasQuota && !offlineState) {
           /* MOCK DATA CODE:
           finalResults = [...MOCK_FRIDGE_RESULTS]
             .sort((a, b) => {
@@ -148,9 +186,13 @@ export function MyFridge() {
           const rawResults = await searchByFridge(currentIngredients.join(','));
           finalResults = (rawResults || []).slice(0, 10);
 
-          // Cache results for offline / quota exhaustion fallback
+          // Cache results & INCREMENT QUOTA
           cacheRecipes(finalResults);
           incrementQuota('myfridge');
+
+          // Trigger state update to force React re-render for QuotaBadge & UI status
+          const updatedQuotaStatus = getQuotaStatus('myfridge');
+          setIsQuotaExceeded(updatedQuotaStatus.isExceeded);
 
           const recognizedNames = new Set();
           finalResults.forEach((recipe) => {
@@ -184,15 +226,23 @@ export function MyFridge() {
           setResults(finalResults);
         }
       } catch (error) {
-        if (!abortControllerRef.current.signal.aborted) {
-          console.error('Failed to fetch fridge recipes:', error);
-          
-          // Network error fallback to cached real recipes
+        if (!abortControllerRef.current?.signal.aborted) {
+          console.error('API Error:', error);
+
+          // If API key quota is exhausted on Spoonacular's servers
+          if (error.response?.status === 402) {
+            setQuotaExceeded('myfridge'); // Force local quota to maxed out
+            setIsQuotaExceeded(true);
+          } else if (!navigator.onLine) {
+            setIsOffline(true);
+          }
+
+          // Fall back to local cache
           const fallbackResults = getMatchingCachedRecipes(currentIngredients);
           setResults(fallbackResults);
         }
       } finally {
-        if (!abortControllerRef.current.signal.aborted) {
+        if (!abortControllerRef.current?.signal.aborted) {
           setLoading(false);
         }
       }
@@ -301,7 +351,19 @@ export function MyFridge() {
             <span>Daily API Quota Reached ({quotaStats.used}/{quotaStats.max} searches used):</span>
           </div>
           <p style={{ margin: 0, opacity: 0.9, lineHeight: 1.5 }}>
-            You're browsing in <strong>Offline Fallback Mode</strong>. You can still view, favorite, and export all offline recipes! Your live search quota resets automatically at midnight.
+            Live search is paused for today. You can still search, save, and export all offline recipes! Your daily API limit resets at midnight.
+          </p>
+        </div>
+      )}
+
+      {isOffline && !isQuotaExceeded && (
+        <div style={{ margin: '1.5rem 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold', color: '#e3b341', marginBottom: '0.5rem' }}>
+            <span>📡</span>
+            <span>You Are Currently Offline (No Internet Connection):</span>
+          </div>
+          <p style={{ margin: 0, opacity: 0.9, lineHeight: 1.5 }}>
+            Live search is unavailable. You can still search, save, and export all offline recipes!
           </p>
         </div>
       )}

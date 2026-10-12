@@ -71,3 +71,13 @@ export const getQuotaStatus = (feature) => {
     isExceeded: used >= max,
   };
 };
+
+/**
+ * Forces local quota to maxed out when Spoonacular API responds with HTTP 402
+ */
+export const setQuotaExceeded = (feature) => {
+  const usage = getQuotaUsage();
+  usage[feature] = LIMITS[feature];
+  localStorage.setItem(QUOTA_KEY, JSON.stringify(usage));
+  return usage;
+};

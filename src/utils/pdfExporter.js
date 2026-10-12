@@ -1,5 +1,52 @@
 import { jsPDF } from 'jspdf';
 import { getRecipeInformation } from '../api/spoonacular';
+import { getCachedRecipes } from './cache';
+
+/**
+ * Safely fetches recipe information from local cache first,
+ * falling back to Spoonacular API if details are missing.
+ */
+async function fetchRecipeDetailsForPDF(recipe) {
+  if (!recipe) return null;
+
+  const hasInstructions =
+    recipe?.analyzedInstructions?.[0]?.steps?.length > 0 ||
+    (typeof recipe?.instructions === 'string' && recipe.instructions.trim().length > 0);
+
+  // 1. If recipe already has complete details, return it immediately
+  if (hasInstructions) {
+    return recipe;
+  }
+
+  // 2. Search local storage cache next
+  if (recipe.id) {
+    const cached = getCachedRecipes();
+    const cachedMatch = cached.find((r) => String(r.id) === String(recipe.id));
+    
+    const cachedHasInstructions =
+      cachedMatch?.analyzedInstructions?.[0]?.steps?.length > 0 ||
+      (typeof cachedMatch?.instructions === 'string' && cachedMatch.instructions.trim().length > 0);
+
+    if (cachedMatch && cachedHasInstructions) {
+      return { ...recipe, ...cachedMatch };
+    }
+  }
+
+  // 3. Fall back to live API if missing from cache and network allows
+  if (recipe.id) {
+    try {
+      const detailedData = await getRecipeInformation(recipe.id);
+      if (detailedData) {
+        return { ...recipe, ...detailedData };
+      }
+    } catch (error) {
+      console.warn(`Could not fetch live details for recipe ID ${recipe.id}. Using local data fallback.`, error);
+    }
+  }
+
+  // 4. Return existing recipe object gracefully if API fails or quota is exhausted
+  return recipe;
+}
 
 /**
  * Helper to convert an image URL (like /logo.svg) to a Data URL for jsPDF
@@ -64,18 +111,8 @@ export function getRecipeSteps(recipe) {
 export const downloadRecipePDF = async (recipe) => {
   if (!recipe) return;
 
-  // 🌐 ENRICH RECIPE DATA IF INSTRUCTIONS OR INGREDIENTS ARE MISSING
-  let fullRecipe = recipe;
-  const hasInstructions =
-    recipe?.analyzedInstructions?.[0]?.steps?.length > 0 ||
-    (typeof recipe?.instructions === 'string' && recipe.instructions.trim().length > 0);
-
-  if (!hasInstructions && recipe.id) {
-    const detailedData = await getRecipeInformation(recipe.id);
-    if (detailedData) {
-      fullRecipe = { ...recipe, ...detailedData };
-    }
-  }
+  // 🌐 ENRICH RECIPE DATA SAFELY VIA LOCAL CACHE FIRST
+  const fullRecipe = await fetchRecipeDetailsForPDF(recipe);
 
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -193,7 +230,7 @@ export const downloadRecipePDF = async (recipe) => {
       yPos += splitIng.length * 5;
     });
   } else {
-    doc.text('Standard fresh pantry ingredients.', margin + 6, yPos);
+    doc.text('No ingredient details available for this recipe.', margin + 6, yPos);
     yPos += 6;
   }
 
@@ -210,34 +247,7 @@ export const downloadRecipePDF = async (recipe) => {
   doc.line(margin, yPos + 2, margin + 32, yPos + 2);
   yPos += 10;
 
-  // Extract steps dynamically from Spoonacular API array, string, or fallback message
-  const getSteps = () => {
-    // 1. Primary: Spoonacular analyzedInstructions array
-    if (fullRecipe.analyzedInstructions?.[0]?.steps?.length > 0) {
-      return fullRecipe.analyzedInstructions[0].steps;
-    }
-
-    // 2. Secondary: Spoonacular plain/HTML text instructions string
-    if (typeof fullRecipe.instructions === 'string' && fullRecipe.instructions.trim()) {
-      const cleanText = fullRecipe.instructions.replace(/<[^>]*>?/gm, '');
-      const sentences = cleanText
-        .split('.')
-        .map((s) => s.trim())
-        .filter(Boolean);
-
-      return sentences.map((sentence, index) => ({
-        number: index + 1,
-        step: sentence.endsWith('.') ? sentence : `${sentence}.`
-      }));
-    }
-
-    // 3. Explicit fallback when no instructions exist
-    return [
-      { number: 1, step: 'No step-by-step instructions provided for this recipe.' }
-    ];
-  };
-
-  const steps = getSteps();
+  const steps = getRecipeSteps(fullRecipe);
 
   steps.forEach((stepItem) => {
     if (yPos > pageHeight - 25) {
@@ -293,7 +303,6 @@ export const downloadRecipePDF = async (recipe) => {
   doc.save(`${cleanFilename}_recipe.pdf`);
 };
 
-
 // Unified batch exporter for Favorites (Single Multi-Page PDF Document), max 30 recipes per batch
 export const downloadFavoritesBatchPDF = async (favoritesList = []) => {
   if (!Array.isArray(favoritesList) || !favoritesList.length) return;
@@ -302,19 +311,9 @@ export const downloadFavoritesBatchPDF = async (favoritesList = []) => {
   const MAX_BATCH_LIMIT = 30;
   const safeFavoritesList = favoritesList.slice(0, MAX_BATCH_LIMIT);
 
-  // PRE-FETCH FULL DETAILS FOR ALL RECIPES IN BATCH
+  // PRE-FETCH FULL DETAILS FOR ALL RECIPES IN BATCH SAFELY
   const enrichedFavorites = await Promise.all(
-    safeFavoritesList.map(async (recipe) => {
-      const hasInstructions =
-        recipe?.analyzedInstructions?.[0]?.steps?.length > 0 ||
-        (typeof recipe?.instructions === 'string' && recipe.instructions.trim().length > 0);
-
-      if (!hasInstructions && recipe.id) {
-        const fullData = await getRecipeInformation(recipe.id);
-        return fullData ? { ...recipe, ...fullData } : recipe;
-      }
-      return recipe;
-    })
+    safeFavoritesList.map((recipe) => fetchRecipeDetailsForPDF(recipe))
   );
 
   const doc = new jsPDF({
@@ -453,43 +452,7 @@ export const downloadFavoritesBatchPDF = async (favoritesList = []) => {
     doc.line(margin, yPos + 2, margin + 32, yPos + 2);
     yPos += 10;
 
-    // Helper to extract and normalize steps across all data sources
-    const getBatchSteps = () => {
-      // 1. Live Spoonacular array structure
-      if (recipe.analyzedInstructions?.[0]?.steps?.length > 0) {
-        return recipe.analyzedInstructions[0].steps;
-      }
-
-      // 2. Array of strings or objects (Local cache / Mock structure)
-      if (Array.isArray(recipe.instructions) && recipe.instructions.length > 0) {
-        return recipe.instructions.map((s, idx) =>
-          typeof s === 'string'
-            ? { number: idx + 1, step: s }
-            : { number: s.number || idx + 1, step: s.step || '' }
-        );
-      }
-
-      // 3. Raw text string (plain or HTML from Spoonacular)
-      if (typeof recipe.instructions === 'string' && recipe.instructions.trim()) {
-        const cleanText = recipe.instructions.replace(/<[^>]*>?/gm, '');
-        const sentences = cleanText
-          .split('.')
-          .map((s) => s.trim())
-          .filter(Boolean);
-
-        return sentences.map((sentence, index) => ({
-          number: index + 1,
-          step: sentence.endsWith('.') ? sentence : `${sentence}.`
-        }));
-      }
-
-      // 4. Explicit fallback when no instructions exist
-      return [
-        { number: 1, step: 'No step-by-step instructions provided for this recipe.' }
-      ];
-    };
-
-    const steps = getBatchSteps();
+    const steps = getRecipeSteps(recipe);
 
     steps.forEach((stepItem) => {
       if (yPos > pageHeight - 25) {

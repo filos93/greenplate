@@ -1,6 +1,7 @@
 // src/api/spoonacular.js
 import axios from 'axios';
 import { mockAutocompleteSuggestionsData, mockSearchVegRecipesData } from '../__mocks__/mockData';
+import { canMakeApiCall } from '../utils/quota';
 
 const isProd = import.meta.env.PROD;
 
@@ -20,28 +21,25 @@ const makeRequest = async (endpoint, params = {}) => {
 };
 
 // 1. Live Autocomplete Suggestions (Native Vegetarian Autocomplete)
-export const getRecipeAutocomplete = async (query) => {
-  if (!query?.trim()) return [];
+export async function getRecipeAutocomplete(query) {
+  // Prevent outgoing request if quota is local-exceeded
+  if (!canMakeApiCall('search')) {
+    return [];
+  }
+
   try {
-    const { data } = await makeRequest('/complexSearch', { 
-      query, 
+    const { data } = await makeRequest('/complexSearch', {
+      query,
       diet: 'vegetarian',
       autocomplete: true,
       number: 8
     });
-
-    if (!data?.results) return [];
-
-    // Map to match the { id, title } structure expected by dropdown
-    return data.results.map((recipe) => ({
-      id: recipe.id,
-      title: recipe.title
-    }));
+    return data.results || data || [];
   } catch (error) {
     console.error('Failed to fetch autocomplete:', error);
-    return [];
+    throw error; // Pass error up so component can setQuotaExceeded on 402
   }
-};
+}
 
 // 2. Live Vegetarian Search
 export const searchVegRecipes = async (query) => {
@@ -58,7 +56,7 @@ export const searchVegRecipes = async (query) => {
     return data.results || [];
   } catch (error) {
     console.error('Failed to search recipes:', error);
-    return [];
+    throw error; // Rethrow so component catch block handles HTTP 402 quota lock
   }
 };
 
@@ -78,7 +76,6 @@ export const searchByFridge = async (ingredients) => {
     return data.results || [];
   } catch (error) {
     console.error('Failed to search by fridge ingredients:', error);
-    //return [];
     throw error; // for display show when offline
   }
 };

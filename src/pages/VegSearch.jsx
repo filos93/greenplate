@@ -12,7 +12,7 @@ import { useDebounce } from '../hooks/useDebounce';
 import { RecipeCard } from '../components/RecipeCard';
 import { QuotaBadge } from '../components/QuotaBadge';
 import { sanitizeInput, isValidStructure } from '../utils/validators';
-import { canMakeApiCall, incrementQuota, getQuotaStatus } from '../utils/quota';
+import { canMakeApiCall, incrementQuota, getQuotaStatus, setQuotaExceeded } from '../utils/quota';
 
 export function VegSearch() {
   const [query, setQuery] = useState('');
@@ -25,6 +25,7 @@ export function VegSearch() {
   const [validationError, setValidationError] = useState('');
   const [userIsTyping, setUserIsTyping] = useState(false);
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   const debouncedQuery = useDebounce(query, 300);
   const containerRef = useRef(null);
@@ -32,17 +33,35 @@ export function VegSearch() {
   const abortControllerRef = useRef(null);
   const timerRef = useRef(null);
 
-  // Inside VegSearch component
   useEffect(() => {
     const hasQuota = canMakeApiCall('search');
-    const isOffline = !navigator.onLine;
+    const offlineState = !navigator.onLine;
+
+    setIsOffline(offlineState);
+    setIsQuotaExceeded(!hasQuota);
 
     // If offline or quota exhausted on load, show all cached recipes by default
-    if (!hasQuota || isOffline) {
+    if (!hasQuota || offlineState) {
       const allCached = getCachedRecipes();
       setRecipes(allCached.slice(0, 20));
       setSearched(true); // Ensures the results grid renders
     }
+
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => {
+      setIsOffline(true);
+      const allCached = getCachedRecipes();
+      setRecipes(allCached.slice(0, 20));
+      setSearched(true);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   // Cleanup abort controller and timer on unmount
@@ -63,7 +82,11 @@ export function VegSearch() {
 
     const fetchSuggestions = async () => {
       const cleaned = sanitizeInput(debouncedQuery);
-      if (userIsTyping && cleaned.length >= 2) {
+      
+      // Double check quota fresh from localStorage right before network call
+      const hasQuota = canMakeApiCall('search');
+
+      if (userIsTyping && cleaned.length >= 2 && hasQuota && !isQuotaExceeded && navigator.onLine) {
         try {
           //const data = await mockGetRecipeAutocomplete(cleaned);
           const data = await getRecipeAutocomplete(cleaned);
@@ -75,6 +98,15 @@ export function VegSearch() {
         } catch (error) {
           if (isMounted) {
             console.error('Failed to fetch suggestions:', error);
+            // Catch 402 immediately on autocomplete typing
+            if (error.response?.status === 402) {
+              setQuotaExceeded('search');
+              setIsQuotaExceeded(true);
+              setSuggestions([]);
+              setShowSuggestions(false);
+              // Instantly fallback search results grid
+              setRecipes(searchCachedRecipes(cleaned));
+            }
           }
         }
       } else {
@@ -90,7 +122,7 @@ export function VegSearch() {
     return () => {
       isMounted = false;
     };
-  }, [debouncedQuery, userIsTyping]);
+  }, [debouncedQuery, userIsTyping, isQuotaExceeded]);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -111,6 +143,18 @@ export function VegSearch() {
     const cleaned = sanitizeInput(rawVal);
     if (validationError && cleaned.length >= 2) {
       setValidationError('');
+    }
+
+    const hasQuota = canMakeApiCall('search');
+    const offlineState = !navigator.onLine;
+
+    // Instantly filter cached recipes locally if quota is exceeded or offline
+    if (!hasQuota || isQuotaExceeded || offlineState) {
+      if (cleaned.length >= 2) {
+        setRecipes(searchCachedRecipes(cleaned));
+      } else {
+        setRecipes(getCachedRecipes().slice(0, 20));
+      }
     }
   };
 
@@ -175,8 +219,12 @@ export function VegSearch() {
     setLoading(true);
     setSearched(true);
 
+    // Fresh quota check from localStorage right before initiating timer
     const hasQuota = canMakeApiCall('search');
+    const offlineState = !navigator.onLine;
+
     setIsQuotaExceeded(!hasQuota);
+    setIsOffline(offlineState);
 
     abortControllerRef.current = new AbortController();
 
@@ -186,13 +234,17 @@ export function VegSearch() {
       try {
         let results = [];
 
-        if (hasQuota) {
+        // Check canMakeApiCall directly to prevent state lag
+        if (hasQuota && canMakeApiCall('search') && !offlineState) {
           //const rawResults = await mockSearchVegRecipes(cleaned);
           //results = (rawResults || []).slice(0, 10);
           const rawResults = await searchVegRecipes(cleaned);
           results = (rawResults || []).slice(0, 10);
           cacheRecipes(results);
           incrementQuota('search');
+
+          const updatedQuotaStatus = getQuotaStatus('search');
+          setIsQuotaExceeded(updatedQuotaStatus.isExceeded);
         } else {
           /* Offline fallback mode consuming central mock data
           results = mockSearchVegRecipesData.map((item, i) => ({
@@ -210,8 +262,17 @@ export function VegSearch() {
         }
       } catch (error) {
         if (!abortControllerRef.current?.signal.aborted) {
-          console.error('Failed to fetch recipes:', error);
-          // Network error fallback to local cache
+          console.error('API Error:', error);
+
+          // If API key quota is exhausted on Spoonacular's servers
+          if (error.response?.status === 402) {
+            setQuotaExceeded('search'); // Force local quota to maxed out
+            setIsQuotaExceeded(true);
+          } else if (!navigator.onLine) {
+            setIsOffline(true);
+          }
+
+          // Fall back to local cache
           setRecipes(searchCachedRecipes(cleaned));
         }
       } finally {
@@ -299,7 +360,19 @@ export function VegSearch() {
             <span>Daily API Quota Reached ({quotaStats.used}/{quotaStats.max} searches used):</span>
           </div>
           <p style={{ margin: 0, opacity: 0.9, lineHeight: 1.5 }}>
-            You're browsing in <strong>Offline Fallback Mode</strong>. You can still view, favorite, and export all offline recipes! Your live search quota resets automatically at midnight.
+            Live search is paused for today. You can still search, save, and export all offline recipes! Your daily API limit resets at midnight.
+          </p>
+        </div>
+      )}
+
+      {isOffline && !isQuotaExceeded && (
+        <div style={{ margin: '1.5rem 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold', color: '#e3b341', marginBottom: '0.5rem' }}>
+            <span>📡</span>
+            <span>You Are Currently Offline (No Internet Connection):</span>
+          </div>
+          <p style={{ margin: 0, opacity: 0.9, lineHeight: 1.5 }}>
+            Live search is unavailable. You can still search, save, and export all offline recipes!
           </p>
         </div>
       )}
