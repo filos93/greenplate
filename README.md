@@ -39,7 +39,7 @@ and generate downloadable PDF cookbooks.
 
 - Export an individual recipe as a PDF
 - Combine up to 30 favorite recipes into one cookbook
-- Automatically format recipe titles, ingredients, images, and instructions
+- Automatically format recipe titles, ingredients, and instructions
 - Cache recipe data to reduce duplicate API requests
 - Generate multi-page documents using jsPDF
 
@@ -89,36 +89,9 @@ greenplate/
 
 ---
 
-## 📸 App Preview & Visual Highlights
-
-**My Veg Search**
-
-<img width="400" height="200" alt="" src="" />
-
-**My Fridge**
-
-<img width="400" height="200" alt="" src="" />
-
-**Favorites**
-
-<img width="400" height="200" alt="" src="" />
-
----
-
 ## 🎥 Live Demo
 
 [LINK]()
-
----
-
-## Known Limitations
-
-- Recipe availability depends on the Spoonacular API.
-- Search functionality may be affected when the API quota is exhausted.
-- Saved favorites are browser-specific when local storage is used.
-- Clearing browser data removes locally saved recipes.
-- PDF generation time increases with cookbook size and image count.
-- External recipe images may fail to load because of unavailable resources or cross-origin restrictions.
 
 ---
 
