@@ -211,7 +211,7 @@ export function VegSearch() {
     }
 
     // Reset UI state before request
-    setQuery('');
+    //setQuery('');
     setUserIsTyping(false);
     setShowSuggestions(false);
     setSuggestions([]);
@@ -308,6 +308,23 @@ export function VegSearch() {
       </div>
 
       <div className="search-container" ref={containerRef}>
+        {query && (
+          <div className="chips-header-row">
+            <button 
+              type="button" 
+              onClick={() => {
+                setQuery('');
+                setSuggestions([]);
+                setShowSuggestions(false);
+              }} 
+              className="clear-all-btn"
+              disabled={loading}
+            >
+              Clear All
+            </button>
+          </div>
+        )}
+
         <form 
           onSubmit={handleSubmit} 
           className={`search-form ${validationError ? 'input-error' : ''}`}

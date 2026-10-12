@@ -149,7 +149,7 @@ export function MyFridge() {
     if (currentIngredients.length < MIN_ITEMS) return;
 
     // RESET FORM INPUTS & CHIPS
-    setIngredients([]);
+    // setIngredients([]);
     setTypedText('');
     setInputError('');
 
@@ -262,6 +262,22 @@ export function MyFridge() {
 
       <div className="search-container">
         <form onSubmit={handleSearch} className="chip-search-form">
+          
+          {/* Top Header Row for Chips (Optional Header Label + Clear All) */}
+          {ingredients.length >= 2 && (
+            <div className="chips-header-row" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.35rem' }}>
+              <button 
+                type="button" 
+                onClick={() => setIngredients([])} 
+                className="clear-all-btn"
+                disabled={loading}
+              >
+                Clear All ({ingredients.length})
+              </button>
+            </div>
+          )}
+
+          {/* Chips & Text Input Box */}
           <div className={`chips-wrapper ${inputError ? 'input-error' : ''} ${loading ? 'disabled' : ''}`}>
             {ingredients.map((item, index) => (
               <span key={item} className="ingredient-chip">
@@ -301,6 +317,7 @@ export function MyFridge() {
 
           {inputError && <p className="input-error-message">⚠️ {inputError}</p>}
 
+          {/* Quick Add Section */}
           <div className="quick-add-section">
             <span className="quick-label">Or choose popular ingredients:</span>
             <div className="quick-chips">
@@ -323,6 +340,7 @@ export function MyFridge() {
             </div>
           </div>
 
+          {/* Action Row */}
           <div className="form-action-row">
             <button 
               type="submit" 

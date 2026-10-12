@@ -756,13 +756,21 @@ body.dark button.remove-btn:hover,
   color: var(--primary);
 }
 
-
 /* --- CHIP INPUT & FRIDGE FORM LAYOUT --- */
 .chip-search-form {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
   width: 100%;
+}
+
+/* Header row for Clear All button above the input wrapper */
+.chips-header-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0 0.2rem;
+  margin-bottom: 0.5rem; /* Keeps layout compact */
 }
 
 .chips-wrapper {
@@ -792,7 +800,7 @@ body.dark button.remove-btn:hover,
   border: 1px solid rgba(16, 185, 129, 0.3);
   padding: 0.25rem 0.65rem;
   border-radius: 20px;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   font-weight: 700;
 }
 
@@ -815,6 +823,37 @@ body.dark .ingredient-chip,
 
 .chip-remove-btn:hover:not(:disabled) {
   opacity: 1;
+}
+
+/* Light Mode Defaults */
+.clear-all-btn {
+  background: none;
+  border: none;
+  color: #dc2626; /* Slightly darker red for crisp contrast on light backgrounds */
+  font-size: 0.85rem; /* Restored font size */
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  text-decoration: none;
+  opacity: 0.9;
+  transition: opacity 0.2s ease, background-color 0.2s ease;
+}
+
+.clear-all-btn:hover:not(:disabled) {
+  opacity: 1;
+  background-color: rgba(220, 38, 38, 0.08); /* Light red tint hover */
+}
+
+/* Dark Mode Overrides */
+body.dark .clear-all-btn,
+[data-theme="dark"] .clear-all-btn {
+  color: #ff7b72; /* Vivid coral red for dark backgrounds */
+}
+
+body.dark .clear-all-btn:hover:not(:disabled),
+[data-theme="dark"] .clear-all-btn:hover:not(:disabled) {
+  background-color: rgba(255, 123, 114, 0.15);
 }
 
 .chip-input {
