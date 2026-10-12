@@ -19,15 +19,32 @@ const makeRequest = async (endpoint, params = {}) => {
   return api.get(endpoint, { params });
 };
 
-// 1. Live Autocomplete Suggestions
+// List of common non-vegetarian keywords to filter out
+const MEAT_KEYWORDS = [
+  'chicken', 'beef', 'pork', 'bacon', 'turkey', 'lamb', 'steak', 
+  'sausage', 'ham', 'meatball', 'pepperoni', 'fish', 'salmon', 
+  'tuna', 'shrimp', 'crab', 'anchovy', 'duck', 'veal', 'prosciutto'
+];
+
+// 1. Live Autocomplete Suggestions (Filtered for Vegetarian)
 export const getRecipeAutocomplete = async (query) => {
   if (!query?.trim()) return [];
   try {
     const { data } = await makeRequest('/autocomplete', { 
       query, 
-      number: 5 
+      number: 10 // Increased slightly so still get ~5 suggestions after filtering
     });
-    return data || [];
+
+    if (!Array.isArray(data)) return [];
+
+    // Filter out suggestions containing any meat/seafood keywords
+    const vegetarianSuggestions = data.filter((item) => {
+      const title = item.title.toLowerCase();
+      return !MEAT_KEYWORDS.some((meat) => title.includes(meat));
+    });
+
+    // Return the top 5 clean results
+    return vegetarianSuggestions.slice(0, 5);
   } catch (error) {
     console.error('Failed to fetch autocomplete:', error);
     return [];
