@@ -27,7 +27,7 @@ export const getRecipeAutocomplete = async (query) => {
       query, 
       diet: 'vegetarian',
       autocomplete: true,
-      number: 5
+      number: 8
     });
 
     if (!data?.results) return [];
