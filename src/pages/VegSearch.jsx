@@ -372,7 +372,7 @@ export function VegSearch() {
         >
           <input 
             type="text" 
-            placeholder="Type to search (e.g., spinach, broccoli, avocado)..." 
+            placeholder="Search dishes or ingredients (e.g., pasta, curry, spinach)..." 
             value={query}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
