@@ -21,6 +21,7 @@ export function MyFridge() {
   const [results, setResults] = useState([]);
   const [unrecognizedItems, setUnrecognizedItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
   const [inputError, setInputError] = useState('');
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -42,6 +43,7 @@ export function MyFridge() {
     if (!hasQuota || offlineState) {
       const allCached = getCachedRecipes();
       setResults(allCached.slice(0, 20));
+      setSearched(true);
     }
 
     const handleOnline = () => setIsOffline(false);
@@ -49,6 +51,7 @@ export function MyFridge() {
       setIsOffline(true);
       const allCached = getCachedRecipes();
       setResults(allCached.slice(0, 20));
+      setSearched(true);
     };
 
     window.addEventListener('online', handleOnline);
@@ -92,7 +95,9 @@ export function MyFridge() {
       const offlineState = !navigator.onLine;
 
       if (!hasQuota || offlineState) {
-        setResults(getMatchingCachedRecipes(updatedChips));
+        const matches = getMatchingCachedRecipes(updatedChips);
+        setResults(matches.length > 0 ? matches : getCachedRecipes().slice(0, 20));
+        setSearched(true);
       }
     } else {
       setInputError(`"${cleaned}" is already added.`);
@@ -115,7 +120,13 @@ export function MyFridge() {
     const offlineState = !navigator.onLine;
 
     if (!hasQuota || offlineState) {
-      setResults(getMatchingCachedRecipes(updatedChips));
+      if (updatedChips.length > 0) {
+        const matches = getMatchingCachedRecipes(updatedChips);
+        setResults(matches.length > 0 ? matches : getCachedRecipes().slice(0, 20));
+      } else {
+        setResults(getCachedRecipes().slice(0, 20));
+      }
+      setSearched(true);
     }
   };
 
@@ -139,6 +150,7 @@ export function MyFridge() {
       const cleaned = sanitizeInput(typedText);
       if (isValidStructure(cleaned) && !currentIngredients.includes(cleaned)) {
         currentIngredients.push(cleaned);
+        setIngredients(currentIngredients);
       }
     }
 
@@ -148,6 +160,7 @@ export function MyFridge() {
     setInputError('');
 
     setLoading(true);
+    setSearched(true);
     setUnrecognizedItems([]);
     abortControllerRef.current = new AbortController();
 
@@ -241,14 +254,14 @@ export function MyFridge() {
                 type="button" 
                 onClick={() => {
                   setIngredients([]);
-                  setInputText('');
-                  setUnrecognizedIngredients([]);
-                  setValidationError('');
+                  setTypedText('');
+                  setUnrecognizedItems([]);
+                  setInputError('');
                   setSearched(true);
                   
-                  // Revert recipe grid back to the default cached recipes (works online & offline)
+                  // Revert recipe grid back to default cached recipes
                   const allCached = getCachedRecipes();
-                  setRecipes(allCached.slice(0, 20));
+                  setResults(allCached.slice(0, 20));
                 }} 
                 className="clear-all-btn"
                 disabled={loading}
@@ -369,6 +382,12 @@ export function MyFridge() {
             </p>
           </div>
         </div>
+      )}
+
+      {!loading && searched && !inputError && results.length === 0 && (
+        <p className="status info">
+          No recipes found for your selected ingredients. Try removing or changing an ingredient!
+        </p>
       )}
 
       <div className="grid">
