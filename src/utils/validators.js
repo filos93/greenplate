@@ -1,12 +1,12 @@
 /**
- * Normalizes input: removes accents, converts to lowercase, and trims excess spacing.
+ * Normalizes input by: converting to lowercase and trimming whitespace
  */
-export const sanitizeInput = (raw = '') => {
-  return raw
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+export const sanitizeInput = (str = '') => {
+  return str
     .toLowerCase()
-    .replace(/\s+/g, ' ')
+    .replace(/[-_]/g, ' ')   // Converts hyphens & underscores into spaces
+    .replace(/[^\w\s]/g, '') // Removes remaining special characters
+    .replace(/\s+/g, ' ')   // Collapses multiple spaces into one
     .trim();
 };
 
