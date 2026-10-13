@@ -372,6 +372,12 @@ export function VegSearch() {
                 setSuggestions([]);
                 setShowSuggestions(false);
                 setValidationError('');
+                setSearched(true);
+                setUserIsTyping(false);
+
+                // Reverts recipe grid back to default cached recipes (works online & offline)
+                const allCached = getCachedRecipes();
+                setRecipes(allCached.slice(0, 20));
               }} 
               className="clear-all-btn"
               disabled={loading}

@@ -239,7 +239,17 @@ export function MyFridge() {
             <div className="chips-header-row" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.35rem' }}>
               <button 
                 type="button" 
-                onClick={() => setIngredients([])} 
+                onClick={() => {
+                  setIngredients([]);
+                  setInputText('');
+                  setUnrecognizedIngredients([]);
+                  setValidationError('');
+                  setSearched(true);
+                  
+                  // Revert recipe grid back to the default cached recipes (works online & offline)
+                  const allCached = getCachedRecipes();
+                  setRecipes(allCached.slice(0, 20));
+                }} 
                 className="clear-all-btn"
                 disabled={loading}
               >
