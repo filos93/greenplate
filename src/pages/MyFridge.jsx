@@ -8,11 +8,11 @@ import { canMakeApiCall, incrementQuota, getQuotaStatus, setQuotaExceeded } from
 
 // 20 Curated Vegetarian Staples
 const POPULAR_INGREDIENTS = [
-  'tofu', 'chickpeas', 'black beans', 'lentils', 
+  'tofu', 'chickpeas', 'beans', 'lentils', 
   'spinach', 'broccoli', 'kale', 'zucchini', 
-  'garlic', 'onion', 'tomatoes', 'bell pepper', 
-  'mushrooms', 'sweet potato', 'feta', 'parmesan', 
-  'mozzarella', 'coconut milk', 'olive oil', 'soy sauce'
+  'garlic', 'onion', 'tomatoes', 'pepper', 
+  'mushrooms', 'potatoes', 'feta', 'parmesan', 
+  'avocado', 'coconutmilk', 'olive oil', 'soy sauce'
 ];
 
 export function MyFridge() {

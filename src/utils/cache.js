@@ -1,6 +1,18 @@
 // src/utils/cache.js
 
+import { sanitizeInput } from './validators';
+
 const CACHE_KEY = 'greenplate_cached_recipes';
+
+/**
+ * Simple helper to stem basic English plurals (e.g. "potatoes" -> "potato")
+ */
+const stemWord = (word = '') => {
+  if (word.endsWith('ies')) return word.slice(0, -3) + 'y';
+  if (word.endsWith('es')) return word.slice(0, -2);
+  if (word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1);
+  return word;
+};
 
 /**
  * Save new recipes to local storage cache (deduplicating by recipe ID)
@@ -65,22 +77,40 @@ export function searchCachedRecipes(query = '') {
 export function getMatchingCachedRecipes(selectedIngredients = []) {
   const cached = getCachedRecipes();
 
-  // If no ingredients are selected, return all cached recipes (up to 10)
+  // If no ingredients are selected, return all cached recipes (up to 20)
   if (!selectedIngredients || selectedIngredients.length === 0) {
     return cached.slice(0, 20);
   }
 
-  // Otherwise, filter by selected ingredients
-  return cached.filter((recipe) => {
-    const ingredientNames =
-      recipe.extendedIngredients?.map((ing) =>
-        (ing.name || ing.original || '').toLowerCase()
-      ) || [];
+  // Tokenize and stem selected ingredient chips (e.g. "sweet potato" -> ["sweet", "potato"])
+  const chipTokens = selectedIngredients.flatMap((chip) =>
+    sanitizeInput(chip)
+      .split(' ')
+      .filter(Boolean)
+      .map(stemWord)
+  );
 
-    return selectedIngredients.some((selected) =>
-      ingredientNames.some((ingName) =>
-        ingName.includes(selected.toLowerCase().trim())
-      )
-    );
-  });
+  if (chipTokens.length === 0) return cached.slice(0, 20);
+
+  return cached
+    .map((recipe) => {
+      // Build a comprehensive, sanitized text string from recipe title and all ingredient arrays
+      const titleText = sanitizeInput(recipe.title || '');
+      const usedIng = (recipe.usedIngredients || []).map((i) => i.name || '').join(' ');
+      const unusedIng = (recipe.unusedIngredients || []).map((i) => i.name || '').join(' ');
+      const extIng = (recipe.extendedIngredients || []).map((i) => i.original || i.name || '').join(' ');
+
+      const fullRecipeText = sanitizeInput(`${titleText} ${usedIng} ${unusedIng} ${extIng}`);
+
+      // Count how many token keywords match this recipe
+      const matchCount = chipTokens.reduce(
+        (count, token) => (fullRecipeText.includes(token) ? count + 1 : count),
+        0
+      );
+
+      return { recipe, matchCount };
+    })
+    .filter((item) => item.matchCount > 0)
+    .sort((a, b) => b.matchCount - a.matchCount)
+    .map((item) => item.recipe);
 }
