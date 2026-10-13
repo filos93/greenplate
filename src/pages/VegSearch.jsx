@@ -17,6 +17,16 @@ import { canMakeApiCall, incrementQuota, getQuotaStatus, setQuotaExceeded } from
 const STOP_WORDS = new Set(['with', 'and', 'in', 'of', 'a', 'an', 'the', 'for', 'or', 'to']);
 
 /**
+ * Simple stemming helper to handle plurals during offline/cached matching
+ */
+const stemWord = (word = '') => {
+  if (word.endsWith('ies')) return word.slice(0, -3) + 'y';
+  if (word.endsWith('es')) return word.slice(0, -2);
+  if (word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1);
+  return word;
+};
+
+/**
  * Filters recipes using multi-keyword tokenization against title and ingredients.
  */
 export const filterRecipes = (recipes = [], rawQuery = '') => {
@@ -28,11 +38,12 @@ export const filterRecipes = (recipes = [], rawQuery = '') => {
 
   const keywords = sanitized
     .split(' ')
-    .filter((word) => Boolean(word) && !STOP_WORDS.has(word));
+    .filter((word) => Boolean(word) && !STOP_WORDS.has(word))
+    .map(stemWord);
 
   const activeTokens = keywords.length > 0 
     ? keywords 
-    : sanitized.split(' ').filter(Boolean);
+    : sanitized.split(' ').filter(Boolean).map(stemWord);
 
   return recipes
     .map((recipe) => {
@@ -232,11 +243,11 @@ export function VegSearch() {
       return;
     }
 
-    const cleaned = sanitizeInput(searchTerm || query);
+    const rawInput = searchTerm || query;
 
-    // Input validation
-    if (cleaned.length < 2) {
-      setValidationError('Please type at least 2 characters to search.');
+    // Validate raw user input FIRST to catch illegal symbols or invalid queries
+    if (!isValidSearchQuery(rawInput)) {
+      setValidationError('Invalid entry: Max 6 words, no repeating letters or special symbols.');
       setRecipes([]);
       setSearched(false);
       setShowSuggestions(false);
@@ -244,8 +255,11 @@ export function VegSearch() {
       return;
     }
 
-    if (!isValidSearchQuery(cleaned)) {
-      setValidationError('Invalid entry: Max 6 words, no repeating letters or special symbols.');
+    const cleaned = sanitizeInput(rawInput);
+
+    // Minimum character check
+    if (cleaned.length < 2) {
+      setValidationError('Please type at least 2 characters to search.');
       setRecipes([]);
       setSearched(false);
       setShowSuggestions(false);
@@ -357,6 +371,7 @@ export function VegSearch() {
                 setQuery('');
                 setSuggestions([]);
                 setShowSuggestions(false);
+                setValidationError('');
               }} 
               className="clear-all-btn"
               disabled={loading}
