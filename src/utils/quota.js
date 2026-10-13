@@ -2,8 +2,16 @@
 
 const QUOTA_KEY = 'greenplate_daily_quota';
 
+/**
+ * Returns today's date key in UTC format (YYYY-MM-DD) to align with Spoonacular's UTC midnight reset.
+ */
+const getUtcDateKey = () => {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
+};
+
 const DEFAULT_QUOTA = {
-  date: new Date().toDateString(),
+  date: getUtcDateKey(),
   search: 0,   // Max 6 calls/day
   myfridge: 0, // Max 4 calls/day
 };
@@ -14,7 +22,7 @@ const LIMITS = {
 };
 
 /**
- * Retrieves current daily usage, automatically resetting counts if the calendar day changed.
+ * Retrieves current daily usage, automatically resetting counts if the UTC calendar day changed.
  */
 export const getQuotaUsage = () => {
   const saved = localStorage.getItem(QUOTA_KEY);
@@ -22,9 +30,9 @@ export const getQuotaUsage = () => {
 
   try {
     const parsed = JSON.parse(saved);
-    const today = new Date().toDateString();
+    const today = getUtcDateKey();
 
-    // Reset counts if a new day has started
+    // Reset counts if a new UTC day has started
     if (parsed.date !== today) {
       const resetData = { ...DEFAULT_QUOTA, date: today };
       localStorage.setItem(QUOTA_KEY, JSON.stringify(resetData));
