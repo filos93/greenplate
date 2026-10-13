@@ -7,12 +7,53 @@ import {
 import { mockSearchVegRecipesData } from '../__mocks__/mockData';
 */
 import { getRecipeAutocomplete, searchVegRecipes } from '../api/spoonacular';
-import { cacheRecipes, searchCachedRecipes, getCachedRecipes } from '../utils/cache';
+import { cacheRecipes, getCachedRecipes } from '../utils/cache';
 import { useDebounce } from '../hooks/useDebounce';
 import { RecipeCard } from '../components/RecipeCard';
 import { QuotaBadge } from '../components/QuotaBadge';
-import { sanitizeInput, isValidStructure } from '../utils/validators';
+import { sanitizeInput, isValidSearchQuery } from '../utils/validators';
 import { canMakeApiCall, incrementQuota, getQuotaStatus, setQuotaExceeded } from '../utils/quota';
+
+const STOP_WORDS = new Set(['with', 'and', 'in', 'of', 'a', 'an', 'the', 'for', 'or', 'to']);
+
+/**
+ * Filters recipes using multi-keyword tokenization against title and ingredients.
+ */
+export const filterRecipes = (recipes = [], rawQuery = '') => {
+  const sanitized = sanitizeInput(rawQuery);
+
+  if (!sanitized || !isValidSearchQuery(sanitized)) {
+    return [];
+  }
+
+  const keywords = sanitized
+    .split(' ')
+    .filter((word) => Boolean(word) && !STOP_WORDS.has(word));
+
+  const activeTokens = keywords.length > 0 
+    ? keywords 
+    : sanitized.split(' ').filter(Boolean);
+
+  return recipes
+    .map((recipe) => {
+      const titleText = sanitizeInput(recipe.title || '');
+      const ingredientsText = Array.isArray(recipe.ingredients) 
+        ? sanitizeInput(recipe.ingredients.join(' '))
+        : '';
+      const fullText = `${titleText} ${ingredientsText}`;
+
+      // Count how many keywords match this recipe
+      const matchCount = activeTokens.reduce(
+        (count, token) => (fullText.includes(token) ? count + 1 : count),
+        0
+      );
+
+      return { recipe, matchCount };
+    })
+    .filter((item) => item.matchCount > 0) // Keep items with at least 1 keyword match
+    .sort((a, b) => b.matchCount - a.matchCount) // Sort highest match count first
+    .map((item) => item.recipe);
+};
 
 export function VegSearch() {
   const [query, setQuery] = useState('');
@@ -104,8 +145,9 @@ export function VegSearch() {
               setIsQuotaExceeded(true);
               setSuggestions([]);
               setShowSuggestions(false);
-              // Instantly fallback search results grid
-              setRecipes(searchCachedRecipes(cleaned));
+              // Instantly fallback search results grid using multi-word matching
+              const allCached = getCachedRecipes();
+              setRecipes(filterRecipes(allCached, cleaned));
             }
           }
         }
@@ -148,12 +190,13 @@ export function VegSearch() {
     const hasQuota = canMakeApiCall('search');
     const offlineState = !navigator.onLine;
 
-    // Instantly filter cached recipes locally if quota is exceeded or offline
+    // Instantly filter cached recipes locally using multi-word tokenization if quota is exceeded or offline
     if (!hasQuota || isQuotaExceeded || offlineState) {
+      const allCached = getCachedRecipes();
       if (cleaned.length >= 2) {
-        setRecipes(searchCachedRecipes(cleaned));
+        setRecipes(filterRecipes(allCached, cleaned));
       } else {
-        setRecipes(getCachedRecipes().slice(0, 20));
+        setRecipes(allCached.slice(0, 20));
       }
     }
   };
@@ -201,7 +244,7 @@ export function VegSearch() {
       return;
     }
 
-    if (!isValidStructure(cleaned, 6)) {
+    if (!isValidSearchQuery(cleaned)) {
       setValidationError('Invalid entry: Max 6 words, no repeating letters or special symbols.');
       setRecipes([]);
       setSearched(false);
@@ -211,7 +254,6 @@ export function VegSearch() {
     }
 
     // Reset UI state before request
-    //setQuery('');
     setUserIsTyping(false);
     setShowSuggestions(false);
     setSuggestions([]);
@@ -234,27 +276,24 @@ export function VegSearch() {
       try {
         let results = [];
 
-        // Check canMakeApiCall directly to prevent state lag
         if (hasQuota && canMakeApiCall('search') && !offlineState) {
-          //const rawResults = await mockSearchVegRecipes(cleaned);
-          //results = (rawResults || []).slice(0, 10);
           const rawResults = await searchVegRecipes(cleaned);
-          results = (rawResults || []).slice(0, 10);
-          cacheRecipes(results);
-          incrementQuota('search');
+          
+          if (rawResults && rawResults.length > 0) {
+            results = rawResults.slice(0, 10);
+            cacheRecipes(results);
+            incrementQuota('search');
+          } else {
+            // API returned 0 results for strict query -> fallback to ranked local search
+            const allCached = getCachedRecipes();
+            results = filterRecipes(allCached, cleaned);
+          }
 
           const updatedQuotaStatus = getQuotaStatus('search');
           setIsQuotaExceeded(updatedQuotaStatus.isExceeded);
         } else {
-          /* Offline fallback mode consuming central mock data
-          results = mockSearchVegRecipesData.map((item, i) => ({
-            ...item,
-            id: 900 + i,
-            title: `${cleaned.charAt(0).toUpperCase() + cleaned.slice(1)} - ${item.title} (Offline Mode)`,
-            summary: `${item.summary} [Offline fallback record]`
-          }));
-          */
-          results = searchCachedRecipes(cleaned);
+          const allCached = getCachedRecipes();
+          results = filterRecipes(allCached, cleaned);
         }
 
         if (!abortControllerRef.current?.signal.aborted) {
@@ -272,8 +311,9 @@ export function VegSearch() {
             setIsOffline(true);
           }
 
-          // Fall back to local cache
-          setRecipes(searchCachedRecipes(cleaned));
+          // Fall back to local cache using multi-word matching
+          const allCached = getCachedRecipes();
+          setRecipes(filterRecipes(allCached, cleaned));
         }
       } finally {
         if (!abortControllerRef.current?.signal.aborted) {
@@ -294,6 +334,7 @@ export function VegSearch() {
   };
 
   const handleSelectSuggestion = (title) => {
+    setQuery(title);
     executeSearch(title);
   };
 

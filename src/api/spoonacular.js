@@ -31,10 +31,16 @@ export async function getRecipeAutocomplete(query) {
     const { data } = await makeRequest('/complexSearch', {
       query,
       diet: 'vegetarian',
-      autocomplete: true,
       number: 8
     });
-    return data.results || data || [];
+
+    const results = data.results || data || [];
+
+    // Standardize mapping to ensure items always return predictable { id, title } shapes
+    return results.map((recipe) => ({
+      id: recipe.id,
+      title: recipe.title
+    }));
   } catch (error) {
     console.error('Failed to fetch autocomplete:', error);
     throw error; // Pass error up so component can setQuotaExceeded on 402

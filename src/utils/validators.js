@@ -26,3 +26,10 @@ export const isValidStructure = (word = '', maxWords = 2) => {
 
   return true;
 };
+
+/**
+ * Structural Guard specifically for general search inputs (up to 6 words)
+ */
+export const isValidSearchQuery = (query = '') => {
+  return isValidStructure(query, 6);
+};

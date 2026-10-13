@@ -1,8 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-// import { mockFridgeResultsData as MOCK_FRIDGE_RESULTS } from '../__mocks__/mockData';
 import { searchByFridge } from '../api/spoonacular';
 import { cacheRecipes, getMatchingCachedRecipes, getCachedRecipes } from '../utils/cache';
-import { useAppContext } from '../context/AppContext';
 import { RecipeCard } from '../components/RecipeCard';
 import { QuotaBadge } from '../components/QuotaBadge';
 import { isValidStructure, sanitizeInput } from '../utils/validators';
@@ -27,14 +25,12 @@ export function MyFridge() {
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   
-  const { toggleFavorite, favorites } = useAppContext();
   const abortControllerRef = useRef(null);
   const timerRef = useRef(null);
 
   const MIN_ITEMS = 2;
   const MAX_ITEMS = 5;
 
-  // Inside MyFridge component
   useEffect(() => {
     const hasQuota = canMakeApiCall('myfridge');
     const offlineState = !navigator.onLine;
@@ -148,8 +144,6 @@ export function MyFridge() {
 
     if (currentIngredients.length < MIN_ITEMS) return;
 
-    // RESET FORM INPUTS & CHIPS
-    // setIngredients([]);
     setTypedText('');
     setInputError('');
 
@@ -171,26 +165,18 @@ export function MyFridge() {
 
       try {
         if (hasQuota && !offlineState) {
-          /* MOCK DATA CODE:
-          finalResults = [...MOCK_FRIDGE_RESULTS]
-            .sort((a, b) => {
-              if (b.usedIngredientCount !== a.usedIngredientCount) {
-                return b.usedIngredientCount - a.usedIngredientCount;
-              }
-              return a.missedIngredientCount - b.missedIngredientCount;
-            })
-            .slice(0, 10);
-          */
-
           // LIVE SPOONACULAR API CALL
           const rawResults = await searchByFridge(currentIngredients.join(','));
-          finalResults = (rawResults || []).slice(0, 10);
+          
+          if (rawResults && rawResults.length > 0) {
+            finalResults = rawResults.slice(0, 10);
+            cacheRecipes(finalResults);
+            incrementQuota('myfridge');
+          } else {
+            // Fallback to local matching cache if API returns 0 items
+            finalResults = getMatchingCachedRecipes(currentIngredients);
+          }
 
-          // Cache results & INCREMENT QUOTA
-          cacheRecipes(finalResults);
-          incrementQuota('myfridge');
-
-          // Trigger state update to force React re-render for QuotaBadge & UI status
           const updatedQuotaStatus = getQuotaStatus('myfridge');
           setIsQuotaExceeded(updatedQuotaStatus.isExceeded);
 
@@ -208,16 +194,6 @@ export function MyFridge() {
 
           setUnrecognizedItems(unrecognized);
         } else {
-          /* MOCK DATA OFFLINE FALLBACK:
-          const mainTerm = currentIngredients[0] || 'Fridge';
-          finalResults = Array.from({ length: 10 }, (_, i) => ({
-            id: 800 + i,
-            title: `${mainTerm.charAt(0).toUpperCase() + mainTerm.slice(1)} Dish ${i + 1} (Offline Mode)`,
-            image: 'https://via.placeholder.com/312x231',
-            summary: 'Offline fallback recipe available without consuming API quota.'
-          }));
-          */
-
           // LOCAL CACHE OFFLINE FALLBACK
           finalResults = getMatchingCachedRecipes(currentIngredients);
         }
@@ -229,15 +205,13 @@ export function MyFridge() {
         if (!abortControllerRef.current?.signal.aborted) {
           console.error('API Error:', error);
 
-          // If API key quota is exhausted on Spoonacular's servers
           if (error.response?.status === 402) {
-            setQuotaExceeded('myfridge'); // Force local quota to maxed out
+            setQuotaExceeded('myfridge');
             setIsQuotaExceeded(true);
           } else if (!navigator.onLine) {
             setIsOffline(true);
           }
 
-          // Fall back to local cache
           const fallbackResults = getMatchingCachedRecipes(currentIngredients);
           setResults(fallbackResults);
         }
@@ -254,7 +228,6 @@ export function MyFridge() {
 
   return (
     <div className="page">
-      {/* 🏷️ Header with Quota Badge on the right */}
       <div className="page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
         <h2 className="page-title" style={{ margin: 0 }}>🥑 What's in My Fridge?</h2>
         <QuotaBadge feature="myfridge" />
@@ -262,8 +235,6 @@ export function MyFridge() {
 
       <div className="search-container">
         <form onSubmit={handleSearch} className="chip-search-form">
-          
-          {/* Top Header Row for Chips (Optional Header Label + Clear All) */}
           {ingredients.length >= 2 && (
             <div className="chips-header-row" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.35rem' }}>
               <button 
@@ -277,7 +248,6 @@ export function MyFridge() {
             </div>
           )}
 
-          {/* Chips & Text Input Box */}
           <div className={`chips-wrapper ${inputError ? 'input-error' : ''} ${loading ? 'disabled' : ''}`}>
             {ingredients.map((item, index) => (
               <span key={item} className="ingredient-chip">
@@ -305,11 +275,6 @@ export function MyFridge() {
                   if (inputError) setInputError('');
                 }}
                 onKeyDown={handleKeyDown}
-                onBlur={() => {
-                  if (typedText.trim()) {
-                    addIngredient(typedText);
-                  }
-                }}
                 className="chip-input"
               />
             )}
@@ -317,7 +282,6 @@ export function MyFridge() {
 
           {inputError && <p className="input-error-message">⚠️ {inputError}</p>}
 
-          {/* Quick Add Section */}
           <div className="quick-add-section">
             <span className="quick-label">Or choose popular ingredients:</span>
             <div className="quick-chips">
@@ -340,7 +304,6 @@ export function MyFridge() {
             </div>
           </div>
 
-          {/* Action Row */}
           <div className="form-action-row">
             <button 
               type="submit" 
@@ -361,7 +324,6 @@ export function MyFridge() {
         </form>
       </div>
 
-      {/* ⚡ Exact Quota Exceeded Banner matching Search */}
       {isQuotaExceeded && (
         <div style={{ margin: '1.5rem 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold', color: '#ff7b72', marginBottom: '0.5rem' }}>
