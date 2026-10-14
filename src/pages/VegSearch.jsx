@@ -135,6 +135,15 @@ export function VegSearch() {
     const fetchSuggestions = async () => {
       const cleaned = sanitizeInput(debouncedQuery);
       
+      // Prevent network autocomplete silently without firing error banners while typing
+      if (!isValidSearchQuery(debouncedQuery)) {
+        if (isMounted) {
+          setSuggestions([]);
+          setShowSuggestions(false);
+        }
+        return;
+      }
+
       // Double check quota fresh from localStorage right before network call
       const hasQuota = canMakeApiCall('search');
 
@@ -200,18 +209,19 @@ export function VegSearch() {
     setQuery(rawVal);
     setUserIsTyping(true);
 
-    const cleaned = sanitizeInput(rawVal);
-    if (validationError && cleaned.length >= 2) {
+    // Clear previous submission errors silently as soon as user modifies input
+    if (validationError) {
       setValidationError('');
     }
 
+    const cleaned = sanitizeInput(rawVal);
     const hasQuota = canMakeApiCall('search');
     const offlineState = !navigator.onLine;
 
     // Instantly filter cached recipes locally using multi-word tokenization if quota is exceeded or offline
     if (!hasQuota || isQuotaExceeded || offlineState) {
       const allCached = getCachedRecipes();
-      if (cleaned.length >= 2) {
+      if (cleaned.length >= 2 && isValidSearchQuery(rawVal)) {
         setRecipes(filterRecipes(allCached, cleaned));
       } else {
         setRecipes(allCached.slice(0, 20));
@@ -252,11 +262,11 @@ export function VegSearch() {
 
     const rawInput = searchTerm || query;
 
-    // Validate raw user input FIRST to catch illegal symbols or invalid queries
+    // Validate raw user input ONLY on submit (Enter / Click)
     if (!isValidSearchQuery(rawInput)) {
-      setValidationError('Invalid entry: Max 6 words, no repeating letters or special symbols.');
+      setValidationError('Invalid entry: Max 6 words, no repeating letters, numbers, or special symbols.');
       setRecipes([]);
-      setSearched(false);
+      setSearched(true); // Keep searched set to true so error banner displays cleanly
       setShowSuggestions(false);
       setUserIsTyping(false);
       return;
@@ -268,13 +278,13 @@ export function VegSearch() {
     if (cleaned.length < 2) {
       setValidationError('Please type at least 2 characters to search.');
       setRecipes([]);
-      setSearched(false);
+      setSearched(true);
       setShowSuggestions(false);
       setUserIsTyping(false);
       return;
     }
 
-    // Reset UI state before request
+    // Reset UI state before network / local cache request
     setUserIsTyping(false);
     setShowSuggestions(false);
     setSuggestions([]);
@@ -349,7 +359,12 @@ export function VegSearch() {
   };
 
   const handleSubmit = (e) => {
-    if (e) e.preventDefault();
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    setShowSuggestions(false);
 
     if (selectedIndex >= 0 && suggestions[selectedIndex]) {
       handleSelectSuggestion(suggestions[selectedIndex].title);
@@ -363,7 +378,7 @@ export function VegSearch() {
     executeSearch(title);
   };
 
-  const isSearchDisabled = sanitizeInput(query).length < 2;
+  const isSearchDisabled = query.trim().length < 2;
   const quotaStats = getQuotaStatus('search');
 
   return (

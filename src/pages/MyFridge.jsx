@@ -131,7 +131,10 @@ export function MyFridge() {
   };
 
   const handleSearch = (e) => {
-    if (e) e.preventDefault();
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
 
     // IF ALREADY LOADING: STOP THE SEARCH IMMEDIATELY
     if (loading) {
@@ -146,15 +149,27 @@ export function MyFridge() {
     }
 
     let currentIngredients = [...ingredients];
+
+    // If user typed an ingredient into the input box before hitting Search/Enter
     if (typedText.trim() && currentIngredients.length < MAX_ITEMS) {
       const cleaned = sanitizeInput(typedText);
-      if (isValidStructure(cleaned) && !currentIngredients.includes(cleaned)) {
+      
+      // Validate the typed entry on submit
+      if (!isValidStructure(cleaned)) {
+        setInputError('Invalid entry: Must be 2+ letters, max 2 words, no symbols or repeating letters.');
+        return;
+      }
+
+      if (!currentIngredients.includes(cleaned)) {
         currentIngredients.push(cleaned);
         setIngredients(currentIngredients);
       }
     }
 
-    if (currentIngredients.length < MIN_ITEMS) return;
+    if (currentIngredients.length < MIN_ITEMS) {
+      setInputError(`Please select at least ${MIN_ITEMS} ingredients to search.`);
+      return;
+    }
 
     setTypedText('');
     setInputError('');
@@ -172,7 +187,7 @@ export function MyFridge() {
     setIsOffline(offlineState);
 
     timerRef.current = setTimeout(async () => {
-      if (abortControllerRef.current.signal.aborted) return;
+      if (abortControllerRef.current?.signal.aborted) return;
 
       let finalResults = [];
 
@@ -211,7 +226,7 @@ export function MyFridge() {
           finalResults = getMatchingCachedRecipes(currentIngredients);
         }
 
-        if (!abortControllerRef.current.signal.aborted) {
+        if (!abortControllerRef.current?.signal.aborted) {
           setResults(finalResults);
         }
       } catch (error) {
