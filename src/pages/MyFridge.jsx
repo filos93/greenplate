@@ -82,7 +82,7 @@ export function MyFridge() {
     setInputError('');
 
     if (!isValidStructure(cleaned)) {
-      setInputError('Invalid entry: Must be 2+ letters, max 2 words, no symbols or repeating letters.');
+      setInputError('Invalid entry: Use 2+ letters (max 2 words). No numbers, symbols, or 3+ repeated letters.');
       return;
     }
 

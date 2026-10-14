@@ -264,7 +264,7 @@ export function VegSearch() {
 
     // Validate raw user input ONLY on submit (Enter / Click)
     if (!isValidSearchQuery(rawInput)) {
-      setValidationError('Invalid entry: Max 6 words, no repeating letters, numbers, or special symbols.');
+      setValidationError('Invalid entry: Use 2+ letters (max 6 words). No numbers, symbols, or 3+ repeated letters.');
       setRecipes([]);
       setSearched(true); // Keep searched set to true so error banner displays cleanly
       setShowSuggestions(false);
