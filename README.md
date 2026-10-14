@@ -91,7 +91,7 @@ greenplate/
 
 ## 🎥 Live Demo
 
-[LINK]()
+View the live application on [Vercel](https://flg-greenplate.vercel.app/).
 
 ---
 
