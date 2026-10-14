@@ -216,17 +216,24 @@ export function MyFridge() {
         }
       } catch (error) {
         if (!abortControllerRef.current?.signal.aborted) {
-          console.error('API Error:', error);
+          console.error('API Error / Offline Network Failure:', error);
 
+          // 1. Quota exhausted on Spoonacular's servers
           if (error.response?.status === 402) {
             setQuotaExceeded('myfridge');
             setIsQuotaExceeded(true);
-          } else if (!navigator.onLine) {
+          } 
+          // 2. Intercept offline drops (including Android silent network failures)
+          else if (!navigator.onLine || error.message === 'Network Error' || !error.response) {
             setIsOffline(true);
           }
 
+          // 3. Fallback to local matching cache
           const fallbackResults = getMatchingCachedRecipes(currentIngredients);
-          setResults(fallbackResults);
+          
+          // If chip selection yields 0 exact matches, fall back to top 20 default cached recipes
+          setResults(fallbackResults.length > 0 ? fallbackResults : getCachedRecipes().slice(0, 20));
+          setSearched(true); // Guarantees the grid renders reliably on mobile and desktop
         }
       } finally {
         if (!abortControllerRef.current?.signal.aborted) {

@@ -150,16 +150,23 @@ export function VegSearch() {
         } catch (error) {
           if (isMounted) {
             console.error('Failed to fetch suggestions:', error);
+            
             // Catch 402 immediately on autocomplete typing
             if (error.response?.status === 402) {
               setQuotaExceeded('search');
               setIsQuotaExceeded(true);
-              setSuggestions([]);
-              setShowSuggestions(false);
-              // Instantly fallback search results grid using multi-word matching
-              const allCached = getCachedRecipes();
-              setRecipes(filterRecipes(allCached, cleaned));
+            } else if (!navigator.onLine || error.message === 'Network Error' || !error.response) {
+              setIsOffline(true);
             }
+
+            setSuggestions([]);
+            setShowSuggestions(false);
+
+            // Instantly fallback search results grid using multi-word matching
+            const allCached = getCachedRecipes();
+            const matches = filterRecipes(allCached, cleaned);
+            setRecipes(matches.length > 0 ? matches : allCached.slice(0, 20));
+            setSearched(true);
           }
         }
       } else {
@@ -315,19 +322,23 @@ export function VegSearch() {
         }
       } catch (error) {
         if (!abortControllerRef.current?.signal.aborted) {
-          console.error('API Error:', error);
+          console.error('API Error / Offline Network Failure:', error);
 
           // If API key quota is exhausted on Spoonacular's servers
           if (error.response?.status === 402) {
             setQuotaExceeded('search'); // Force local quota to maxed out
             setIsQuotaExceeded(true);
-          } else if (!navigator.onLine) {
+          } else if (!navigator.onLine || error.message === 'Network Error' || !error.response) {
             setIsOffline(true);
           }
 
           // Fall back to local cache using multi-word matching
           const allCached = getCachedRecipes();
-          setRecipes(filterRecipes(allCached, cleaned));
+          const matches = filterRecipes(allCached, cleaned);
+
+          // If query yields 0 direct matches in cache, fallback to top 20 default cached recipes
+          setRecipes(matches.length > 0 ? matches : allCached.slice(0, 20));
+          setSearched(true); // Ensures UI grid renders on Android/Mobile
         }
       } finally {
         if (!abortControllerRef.current?.signal.aborted) {
