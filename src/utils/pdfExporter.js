@@ -49,22 +49,62 @@ async function fetchRecipeDetailsForPDF(recipe) {
 }
 
 /**
- * Helper to convert an image URL (like /logo.svg) to a Data URL for jsPDF
+ * Helper to convert an image URL (like /logo.svg or PNG) to a Data URL for jsPDF
  */
-const getLogoDataUrl = (url) => {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = 'Anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width || 100;
-      canvas.height = img.height || 100;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      resolve(canvas.toDataURL('image/png'));
-    };
-    img.onerror = () => resolve(null); // Fallback gracefully if logo fails to load
-    img.src = url;
+export const getLogoDataUrl = (url) => {
+  return new Promise(async (resolve) => {
+    try {
+      // 1. Resolve relative URLs to absolute window location for mobile browsers
+      const absoluteUrl = new URL(url, window.location.origin).href;
+
+      // 2. Fetch directly as Blob if it's an SVG (bypasses Mobile WebKit Canvas SVG restrictions)
+      if (url.endsWith('.svg')) {
+        const response = await fetch(absoluteUrl);
+        if (!response.ok) throw new Error('SVG fetch failed');
+        const svgText = await response.text();
+        const base64Svg = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgText)))}`;
+        
+        // Convert base64 SVG into standard PNG Data URL for jsPDF
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          // Use natural dimensions or enforce explicit fallback bounds
+          const width = img.naturalWidth || img.width || 120;
+          const height = img.naturalHeight || img.height || 120;
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => resolve(null);
+        img.src = base64Svg;
+        return;
+      }
+
+      // 3. Standard PNG / JPG image loading pipeline
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const width = img.naturalWidth || img.width || 120;
+        const height = img.naturalHeight || img.height || 120;
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = () => resolve(null);
+      img.src = absoluteUrl;
+    } catch (error) {
+      console.error('Failed to convert logo to Data URL for PDF:', error);
+      resolve(null);
+    }
   });
 };
 
