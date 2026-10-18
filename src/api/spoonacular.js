@@ -12,38 +12,41 @@ const api = axios.create({
   params: isProd ? {} : { apiKey: import.meta.env.VITE_SPOONACULAR_API_KEY }
 });
 
-// Helper for routing request params correctly between Vercel and local dev
-const makeRequest = async (endpoint, params = {}) => {
+/**
+ * Unified request helper.
+ * Converts action-based params into query parameters for production serverless route,
+ * or direct endpoint paths during local Vite development.
+ */
+const makeRequest = async (action, endpointPath, params = {}) => {
   if (isProd) {
-    return api.get('', { params: { endpoint, ...params } });
+    // Production: sends action-based queries to Vercel's /api/spoonacular
+    return api.get('', { params: { action, ...params } });
   }
-  return api.get(endpoint, { params });
+  // Local Dev: calls Spoonacular API directly using VITE_SPOONACULAR_API_KEY
+  return api.get(endpointPath, { params });
 };
 
-// 1. Live Autocomplete Suggestions (Native Vegetarian Autocomplete)
+// 1. Live Autocomplete Suggestions
 export async function getRecipeAutocomplete(query) {
-  // Prevent outgoing request if quota is local-exceeded
   if (!canMakeApiCall('search')) {
     return [];
   }
 
   try {
-    const { data } = await makeRequest('/complexSearch', {
+    const { data } = await makeRequest('autocomplete', '/autocomplete', {
       query,
-      diet: 'vegetarian',
-      number: 8
+      number: 5
     });
 
     const results = data.results || data || [];
 
-    // Standardize mapping to ensure items always return predictable { id, title } shapes
     return results.map((recipe) => ({
       id: recipe.id,
       title: recipe.title
     }));
   } catch (error) {
     console.error('Failed to fetch autocomplete:', error);
-    throw error; // Pass error up so component can setQuotaExceeded on 402
+    throw error;
   }
 }
 
@@ -51,18 +54,18 @@ export async function getRecipeAutocomplete(query) {
 export const searchVegRecipes = async (query) => {
   if (!query?.trim()) return [];
   try {
-    const { data } = await makeRequest('/complexSearch', {
+    const { data } = await makeRequest('complexSearch', '/complexSearch', {
       query, 
       diet: 'vegetarian', 
       addRecipeInformation: true, 
       addRecipeInstructions: true,
       fillIngredients: true,
-      number: 8
+      number: 10
     });
     return data.results || [];
   } catch (error) {
     console.error('Failed to search recipes:', error);
-    throw error; // Rethrow so component catch block handles HTTP 402 quota lock
+    throw error;
   }
 };
 
@@ -70,31 +73,31 @@ export const searchVegRecipes = async (query) => {
 export const searchByFridge = async (ingredients) => {
   if (!ingredients) return [];
   try {
-    const { data } = await makeRequest('/complexSearch', {
+    const { data } = await makeRequest('complexSearch', '/complexSearch', {
       includeIngredients: ingredients, 
       diet: 'vegetarian', 
       addRecipeInformation: true, 
       addRecipeInstructions: true,
       fillIngredients: true,
       sort: 'max-used-ingredients',
-      number: 8
+      number: 10
     });
     return data.results || [];
   } catch (error) {
     console.error('Failed to search by fridge ingredients:', error);
-    throw error; // for display show when offline
+    throw error;
   }
 };
 
-// 4. Live Detailed Recipe Information (Guarantees analyzedInstructions payload)
+// 4. Live Detailed Recipe Information
 export const getRecipeInformation = async (id) => {
   if (!id) return null;
   try {
-    const { data } = await makeRequest(`/${id}/information`);
+    const { data } = await makeRequest('information', `/${id}/information`, { id });
     return data;
   } catch (error) {
     console.error(`Failed to fetch recipe info for ID ${id}:`, error);
-    throw error; // for display show when offline
+    throw error;
   }
 };
 
