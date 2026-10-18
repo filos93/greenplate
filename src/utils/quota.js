@@ -11,7 +11,6 @@ const getUtcDateKey = () => {
 };
 
 const DEFAULT_QUOTA = {
-  date: getUtcDateKey(),
   search: 0,   // Max 6 calls/day
   myfridge: 0, // Max 4 calls/day
 };
@@ -22,11 +21,20 @@ const LIMITS = {
 };
 
 /**
+ * Helper to return a fresh default quota object with the current UTC date.
+ */
+const createDefaultQuota = () => ({
+  date: getUtcDateKey(),
+  ...DEFAULT_QUOTA,
+});
+
+/**
  * Retrieves current daily usage, automatically resetting counts if the UTC calendar day changed.
+ * Always returns a new copy to avoid mutating default references.
  */
 export const getQuotaUsage = () => {
   const saved = localStorage.getItem(QUOTA_KEY);
-  if (!saved) return DEFAULT_QUOTA;
+  if (!saved) return createDefaultQuota();
 
   try {
     const parsed = JSON.parse(saved);
@@ -34,14 +42,14 @@ export const getQuotaUsage = () => {
 
     // Reset counts if a new UTC day has started
     if (parsed.date !== today) {
-      const resetData = { ...DEFAULT_QUOTA, date: today };
+      const resetData = createDefaultQuota();
       localStorage.setItem(QUOTA_KEY, JSON.stringify(resetData));
       return resetData;
     }
 
-    return parsed;
+    return { ...parsed };
   } catch {
-    return DEFAULT_QUOTA;
+    return createDefaultQuota();
   }
 };
 
