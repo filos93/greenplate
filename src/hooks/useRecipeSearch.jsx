@@ -93,7 +93,8 @@ export function useRecipeSearch(featureKey, fetchApiFn, filterCacheFn) {
             incrementQuota(featureKey);
           } else {
             const allCached = getCachedRecipes();
-            results = filterCacheFn ? filterCacheFn(allCached, searchPayload) : allCached;
+            const fallback = filterCacheFn ? filterCacheFn(allCached, searchPayload) : allCached;
+            results = Array.isArray(fallback) ? fallback : [];
           }
 
           if (onSuccess) {
@@ -103,7 +104,8 @@ export function useRecipeSearch(featureKey, fetchApiFn, filterCacheFn) {
           setIsQuotaExceeded(!canMakeApiCall(featureKey));
         } else {
           const allCached = getCachedRecipes();
-          results = filterCacheFn ? filterCacheFn(allCached, searchPayload) : allCached;
+          const fallback = filterCacheFn ? filterCacheFn(allCached, searchPayload) : allCached;
+          results = Array.isArray(fallback) ? fallback : [];
         }
 
         if (!abortControllerRef.current?.signal.aborted) {
@@ -122,7 +124,8 @@ export function useRecipeSearch(featureKey, fetchApiFn, filterCacheFn) {
 
           const allCached = getCachedRecipes();
           const matches = filterCacheFn ? filterCacheFn(allCached, searchPayload) : [];
-          setRecipes(matches.length > 0 ? matches : allCached.slice(0, 20));
+          const safeMatches = Array.isArray(matches) ? matches : [];
+          setRecipes(safeMatches.length > 0 ? safeMatches : allCached.slice(0, 20));
         }
       } finally {
         if (!abortControllerRef.current?.signal.aborted) {

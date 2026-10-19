@@ -5,7 +5,6 @@ import { useRecipeSearch } from '../useRecipeSearch';
 import * as quotaUtils from '../../utils/quota';
 import * as cacheUtils from '../../utils/cache';
 
-// Mock utility modules
 vi.mock('../../utils/quota');
 vi.mock('../../utils/cache');
 
@@ -22,6 +21,9 @@ describe('useRecipeSearch Hook', () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
 
+    // Silence console.error logs for expected test error scenarios
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
     quotaUtils.canMakeApiCall.mockReturnValue(true);
     quotaUtils.getQuotaStatus.mockReturnValue({ used: 1, max: 10, isExceeded: false });
     cacheUtils.getCachedRecipes.mockReturnValue(mockRecipes);
@@ -35,6 +37,7 @@ describe('useRecipeSearch Hook', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   it('dovrebbe inizializzare lo stato correttamente quando online e con quota disponibile', () => {
@@ -90,6 +93,7 @@ describe('useRecipeSearch Hook', () => {
   it('dovrebbe gestire gli errori di quota HTTP 402 impostando isQuotaExceeded a true', async () => {
     const error402 = { response: { status: 402 } };
     mockFetchApiFn.mockRejectedValueOnce(error402);
+    mockFilterCacheFn.mockReturnValue([]);
 
     const { result } = renderHook(() =>
       useRecipeSearch('search', mockFetchApiFn, mockFilterCacheFn)
