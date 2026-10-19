@@ -6,7 +6,6 @@ import { useRecipeSearch } from '../hooks/useRecipeSearch';
 import { RecipeCard } from '../components/RecipeCard';
 import { QuotaBadge } from '../components/QuotaBadge';
 import { isValidStructure, sanitizeInput } from '../utils/validators';
-import { canMakeApiCall } from '../utils/quota';
 import { StatusBanners } from '../components/StatusBanners';
 
 const POPULAR_INGREDIENTS = [
@@ -36,7 +35,6 @@ export function MyFridge() {
     setRecipes,
     loading,
     searched,
-    setSearched,
     isQuotaExceeded,
     isOffline,
     executeSearch,
@@ -60,13 +58,9 @@ export function MyFridge() {
       setIngredients(updatedChips);
       setTypedText('');
 
-      const hasQuota = canMakeApiCall('myfridge');
-      const offlineState = !navigator.onLine;
-
-      if (!hasQuota || offlineState) {
+      if (isQuotaExceeded || isOffline) {
         const matches = getMatchingCachedRecipes(updatedChips);
         setRecipes(matches.length > 0 ? matches : getCachedRecipes().slice(0, 20));
-        setSearched(true);
       }
     } else {
       setInputError(`"${cleaned}" is already added.`);
@@ -85,17 +79,13 @@ export function MyFridge() {
     const updatedChips = ingredients.filter((_, idx) => idx !== indexToRemove);
     setIngredients(updatedChips);
 
-    const hasQuota = canMakeApiCall('myfridge');
-    const offlineState = !navigator.onLine;
-
-    if (!hasQuota || offlineState) {
+    if (isQuotaExceeded || isOffline) {
       if (updatedChips.length > 0) {
         const matches = getMatchingCachedRecipes(updatedChips);
         setRecipes(matches.length > 0 ? matches : getCachedRecipes().slice(0, 20));
       } else {
         setRecipes(getCachedRecipes().slice(0, 20));
       }
-      setSearched(true);
     }
   };
 
@@ -130,7 +120,6 @@ export function MyFridge() {
     setInputError('');
     setUnrecognizedItems([]);
 
-    // Execute search via hook, passing callback for unrecognized ingredients calculation
     executeSearch(currentIngredients, (liveResults) => {
       const recognizedNames = new Set();
       liveResults.forEach((recipe) => {
@@ -254,7 +243,6 @@ export function MyFridge() {
         </form>
       </div>
 
-      {/* Replaces duplicate quota and offline banner JSX blocks */}
       <StatusBanners 
         isQuotaExceeded={isQuotaExceeded} 
         isOffline={isOffline} 

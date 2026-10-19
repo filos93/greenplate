@@ -1,9 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 export function Home() {
   const [activeTab, setActiveTab] = useState('mission');
-  const navigate = useNavigate();
 
   return (
     <div className="page home-page">

@@ -1,34 +1,35 @@
-// src/hooks/useRecipeSearch.js
+// src/hooks/useRecipeSearch.jsx
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { canMakeApiCall, incrementQuota, getQuotaStatus, setQuotaExceeded } from '../utils/quota';
 import { getCachedRecipes, cacheRecipes } from '../utils/cache';
 
 export function useRecipeSearch(featureKey, fetchApiFn, filterCacheFn) {
-  const [recipes, setRecipes] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
-
-  // Lazy state initializers prevent mount re-renders
+  // Compute initial offline and quota status lazily on the first render
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(() => !canMakeApiCall(featureKey));
   const [isOffline, setIsOffline] = useState(() => typeof navigator !== 'undefined' && !navigator.onLine);
 
+  // Initialize recipe results lazily with fallback cached items if offline or quota is exhausted
+  const [recipes, setRecipes] = useState(() => {
+    const hasQuota = canMakeApiCall(featureKey);
+    const offlineState = typeof navigator !== 'undefined' && !navigator.onLine;
+    if (!hasQuota || offlineState) {
+      return getCachedRecipes().slice(0, 20);
+    }
+    return [];
+  });
+
+  const [searched, setSearched] = useState(() => {
+    const hasQuota = canMakeApiCall(featureKey);
+    const offlineState = typeof navigator !== 'undefined' && !navigator.onLine;
+    return !hasQuota || offlineState;
+  });
+
+  const [loading, setLoading] = useState(false);
   const abortControllerRef = useRef(null);
   const timerRef = useRef(null);
 
-  // Sync connection state and load default cache when offline/exceeded
+  // Synchronize dynamic connection changes while app is mounted
   useEffect(() => {
-    const hasQuota = canMakeApiCall(featureKey);
-    const offlineState = !navigator.onLine;
-
-    setIsOffline(offlineState);
-    setIsQuotaExceeded(!hasQuota);
-
-    if (!hasQuota || offlineState) {
-      const allCached = getCachedRecipes();
-      setRecipes(allCached.slice(0, 20));
-      setSearched(true);
-    }
-
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => {
       setIsOffline(true);
@@ -44,9 +45,9 @@ export function useRecipeSearch(featureKey, fetchApiFn, filterCacheFn) {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [featureKey]);
+  }, []);
 
-  // Clean up timer and abort controller on unmount
+  // Cleanup abort controllers and timers on unmount
   useEffect(() => {
     return () => {
       if (abortControllerRef.current) abortControllerRef.current.abort();
@@ -55,7 +56,6 @@ export function useRecipeSearch(featureKey, fetchApiFn, filterCacheFn) {
   }, []);
 
   const executeSearch = useCallback((searchPayload, onSuccess) => {
-    // Stop search immediately if clicked while loading
     if (loading) {
       if (abortControllerRef.current) abortControllerRef.current.abort();
       if (timerRef.current) clearTimeout(timerRef.current);

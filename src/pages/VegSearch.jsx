@@ -66,12 +66,10 @@ export function VegSearch() {
   const debouncedQuery = useDebounce(query, 300);
   const containerRef = useRef(null);
 
-  // Cache filter callback memoized for hook consumption
   const filterCacheCallback = useCallback((cachedItems, searchTerm) => {
     return filterRecipes(cachedItems, searchTerm);
   }, []);
 
-  // Custom hook encapsulates search execution, status flags, and quota management
   const {
     recipes,
     setRecipes,
@@ -87,7 +85,7 @@ export function VegSearch() {
     quotaStats
   } = useRecipeSearch('search', searchVegRecipes, filterCacheCallback);
 
-  // Fetch Autocomplete Suggestions
+  // Autocomplete fetcher effect
   useEffect(() => {
     let isMounted = true;
 
@@ -147,7 +145,7 @@ export function VegSearch() {
     };
   }, [debouncedQuery, userIsTyping, isQuotaExceeded, setIsQuotaExceeded, setIsOffline, setRecipes, setSearched]);
 
-  // Dropdown click-outside handler
+  // Click outside listener
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
@@ -324,7 +322,6 @@ export function VegSearch() {
         </p>
       )}
 
-      {/* Extracted status alerts component */}
       <StatusBanners 
         isQuotaExceeded={isQuotaExceeded} 
         isOffline={isOffline} 

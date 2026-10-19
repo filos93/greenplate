@@ -1,3 +1,4 @@
+/* eslint-env node */
 // api/spoonacular.js (Serverless Function for Vercel)
 import axios from 'axios';
 
