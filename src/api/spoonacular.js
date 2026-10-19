@@ -1,4 +1,3 @@
-// src/api/spoonacular.js
 import axios from 'axios';
 import { mockAutocompleteSuggestionsData, mockSearchVegRecipesData } from '../__mocks__/mockData';
 import { canMakeApiCall } from '../utils/quota';

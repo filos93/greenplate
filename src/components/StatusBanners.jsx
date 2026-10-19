@@ -1,6 +1,3 @@
-// src/components/StatusBanners.jsx
-import React from 'react';
-
 export function StatusBanners({ isQuotaExceeded, isOffline, quotaStats }) {
   return (
     <>

@@ -1,5 +1,3 @@
-// src/context/__tests__/AppContext.test.jsx
-import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { AppProvider, useAppContext } from '../AppContext';

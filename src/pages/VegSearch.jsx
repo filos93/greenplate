@@ -1,4 +1,4 @@
-// src/pages/VegSearch.jsx
+/* eslint-disable react-refresh/only-export-components */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getRecipeAutocomplete, searchVegRecipes } from '../api/spoonacular';
 import { getCachedRecipes } from '../utils/cache';

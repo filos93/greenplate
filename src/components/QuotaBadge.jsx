@@ -1,4 +1,3 @@
-// src/components/QuotaBadge.jsx
 import { getQuotaStatus } from '../utils/quota';
 
 export function QuotaBadge({ feature }) {

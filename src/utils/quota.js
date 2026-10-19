@@ -1,5 +1,3 @@
-// src/utils/quota.js
-
 const QUOTA_KEY = 'greenplate_daily_quota';
 
 /**

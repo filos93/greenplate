@@ -1,5 +1,3 @@
-// src/__mocks__/mockData.js
-
 export const mockSearchVegRecipesData = [
   {
     id: 1,

@@ -1,4 +1,3 @@
-// src/utils/pdfExporter.js
 import { jsPDF } from 'jspdf';
 import { getRecipeInformation } from '../api/spoonacular';
 import { getCachedRecipes } from './cache';

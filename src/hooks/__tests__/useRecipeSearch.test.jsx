@@ -1,4 +1,3 @@
-// src/hooks/__tests__/useRecipeSearch.test.jsx
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useRecipeSearch } from '../useRecipeSearch';

@@ -1,4 +1,3 @@
-// src/hooks/useRecipeSearch.jsx
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { canMakeApiCall, incrementQuota, getQuotaStatus, setQuotaExceeded } from '../utils/quota';
 import { getCachedRecipes, cacheRecipes } from '../utils/cache';

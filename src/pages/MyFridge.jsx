@@ -1,4 +1,3 @@
-// src/pages/MyFridge.jsx
 import { useState, useCallback } from 'react';
 import { searchByFridge } from '../api/spoonacular';
 import { getMatchingCachedRecipes, getCachedRecipes } from '../utils/cache';

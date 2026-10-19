@@ -1,5 +1,3 @@
-// src/utils/validators.js
-
 /**
  * Normalizes input identically for VegSearch and MyFridge:
  * - Converts to lowercase
