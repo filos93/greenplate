@@ -1,3 +1,4 @@
+// src/utils/pdfExporter.js
 import { jsPDF } from 'jspdf';
 import { getRecipeInformation } from '../api/spoonacular';
 import { getCachedRecipes } from './cache';
@@ -49,42 +50,41 @@ async function fetchRecipeDetailsForPDF(recipe) {
 }
 
 /**
- * Helper to convert an image URL (like /logo.svg or PNG) to a Data URL for jsPDF
+ * Helper to convert an image URL (like /logo.svg or PNG) to a Data URL for jsPDF.
+ * Written as a clean async function to avoid hanging promises.
  */
-export const getLogoDataUrl = (url) => {
-  return new Promise(async (resolve) => {
-    try {
-      // 1. Resolve relative URLs to absolute window location for mobile browsers
-      const absoluteUrl = new URL(url, window.location.origin).href;
+export const getLogoDataUrl = async (url) => {
+  try {
+    const absoluteUrl = new URL(url, window.location.origin).href;
 
-      // 2. Fetch directly as Blob if it's an SVG (bypasses Mobile WebKit Canvas SVG restrictions)
-      if (url.endsWith('.svg')) {
-        const response = await fetch(absoluteUrl);
-        if (!response.ok) throw new Error('SVG fetch failed');
-        const svgText = await response.text();
-        const base64Svg = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgText)))}`;
-        
-        // Convert base64 SVG into standard PNG Data URL for jsPDF
+    // 1. Fetch SVG as text and convert to PNG data URL via canvas
+    if (url.endsWith('.svg')) {
+      const response = await fetch(absoluteUrl);
+      if (!response.ok) throw new Error('SVG fetch failed');
+      const svgText = await response.text();
+      const base64Svg = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgText)))}`;
+
+      return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          // Use natural dimensions or enforce explicit fallback bounds
           const width = img.naturalWidth || img.width || 120;
           const height = img.naturalHeight || img.height || 120;
-          
+
           canvas.width = width;
           canvas.height = height;
-          
+
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
           resolve(canvas.toDataURL('image/png'));
         };
         img.onerror = () => resolve(null);
         img.src = base64Svg;
-        return;
-      }
+      });
+    }
 
-      // 3. Standard PNG / JPG image loading pipeline
+    // 2. Standard PNG / JPG image loading pipeline
+    return new Promise((resolve) => {
       const img = new Image();
       img.crossOrigin = 'Anonymous';
       img.onload = () => {
@@ -101,23 +101,21 @@ export const getLogoDataUrl = (url) => {
       };
       img.onerror = () => resolve(null);
       img.src = absoluteUrl;
-    } catch (error) {
-      console.error('Failed to convert logo to Data URL for PDF:', error);
-      resolve(null);
-    }
-  });
+    });
+  } catch (error) {
+    console.error('Failed to convert logo to Data URL for PDF:', error);
+    return null;
+  }
 };
 
 /**
  * Normalizes recipe instructions into an array of step objects [{ number: 1, step: "..." }]
  */
 export function getRecipeSteps(recipe) {
-  // 1. Live Spoonacular structure: analyzedInstructions[0].steps
   if (recipe?.analyzedInstructions?.[0]?.steps?.length > 0) {
     return recipe.analyzedInstructions[0].steps;
   }
 
-  // 2. Fallback if steps are stored as an array of strings or objects (Local cache / Mock structure)
   if (Array.isArray(recipe?.instructions) && recipe.instructions.length > 0) {
     return recipe.instructions.map((inst, index) => ({
       number: index + 1,
@@ -125,7 +123,6 @@ export function getRecipeSteps(recipe) {
     }));
   }
 
-  // 3. Fallback if instructions are provided as a single text string (with HTML or plain text)
   if (typeof recipe?.instructions === 'string' && recipe.instructions.trim()) {
     const cleanText = recipe.instructions.replace(/<[^>]*>?/gm, '');
     const sentences = cleanText
@@ -139,7 +136,6 @@ export function getRecipeSteps(recipe) {
     }));
   }
 
-  // 4. Explicit fallback when no instructions exist
   return [
     { number: 1, step: 'No step-by-step instructions provided for this recipe.' }
   ];
@@ -151,7 +147,6 @@ export function getRecipeSteps(recipe) {
 export const downloadRecipePDF = async (recipe) => {
   if (!recipe) return;
 
-  // 🌐 ENRICH RECIPE DATA SAFELY VIA LOCAL CACHE FIRST
   const fullRecipe = await fetchRecipeDetailsForPDF(recipe);
 
   const doc = new jsPDF({
@@ -166,18 +161,14 @@ export const downloadRecipePDF = async (recipe) => {
   const contentWidth = pageWidth - margin * 2;
   let yPos = 0;
 
-  // Load Logo Image
   const logoData = await getLogoDataUrl('/logo.svg');
 
-  // 1. BRAND HEADER BANNER
-  doc.setFillColor(16, 185, 129); // Emerald (#10b981)
+  doc.setFillColor(16, 185, 129);
   doc.rect(0, 0, pageWidth, 28, 'F');
 
-  // Render Logo Icon if available
   if (logoData) {
     doc.addImage(logoData, 'PNG', margin, 4, 20, 20);
 
-    // Brand Text beside logo
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(18);
     doc.setTextColor(255, 255, 255);
@@ -189,7 +180,6 @@ export const downloadRecipePDF = async (recipe) => {
     doc.text('GreenPlate', margin, 18);
   }
 
-  // Header Subtitle / Date Stamp
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(209, 250, 229);
@@ -204,7 +194,6 @@ export const downloadRecipePDF = async (recipe) => {
 
   yPos = 38;
 
-  // 2. RECIPE TITLE & SUMMARY
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(20);
   doc.setTextColor(15, 23, 42);
@@ -224,7 +213,6 @@ export const downloadRecipePDF = async (recipe) => {
     yPos += summaryLines.length * 4.8 + 6;
   }
 
-  // 3. DIETARY BADGE
   const badgeWidth = 45;
   const badgeHeight = 9;
 
@@ -239,7 +227,6 @@ export const downloadRecipePDF = async (recipe) => {
 
   yPos += badgeHeight + 10;
 
-  // 4. UNIFIED INGREDIENTS SECTION
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
   doc.setTextColor(15, 23, 42);
@@ -254,7 +241,6 @@ export const downloadRecipePDF = async (recipe) => {
   doc.setFontSize(10);
   doc.setTextColor(51, 65, 85);
 
-  // Extract ingredients cleanly regardless of API source format
   const ingredients =
     fullRecipe.extendedIngredients ||
     [...(fullRecipe.usedIngredients || []), ...(fullRecipe.missedIngredients || [])];
@@ -276,7 +262,6 @@ export const downloadRecipePDF = async (recipe) => {
 
   yPos += 8;
 
-  // 5. INSTRUCTIONS SECTION
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
   doc.setTextColor(15, 23, 42);
@@ -295,7 +280,6 @@ export const downloadRecipePDF = async (recipe) => {
       yPos = 20;
     }
 
-    // Step Number Badge
     const circleRadius = 3.5;
     const circleCenterX = margin + circleRadius;
     const circleCenterY = yPos;
@@ -311,7 +295,6 @@ export const downloadRecipePDF = async (recipe) => {
       baseline: 'middle'
     });
 
-    // Step Description Text
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9.5);
     doc.setTextColor(51, 65, 85);
@@ -326,7 +309,6 @@ export const downloadRecipePDF = async (recipe) => {
     yPos += blockHeight + 3;
   });
 
-  // 6. FOOTER STAMP
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.4);
   doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
@@ -343,15 +325,12 @@ export const downloadRecipePDF = async (recipe) => {
   doc.save(`${cleanFilename}_recipe.pdf`);
 };
 
-// Unified batch exporter for Favorites (Single Multi-Page PDF Document), max 30 recipes per batch
 export const downloadFavoritesBatchPDF = async (favoritesList = []) => {
   if (!Array.isArray(favoritesList) || !favoritesList.length) return;
 
-  // CAP BATCH EXPORT AT 30 RECIPES MAXIMUM
   const MAX_BATCH_LIMIT = 30;
   const safeFavoritesList = favoritesList.slice(0, MAX_BATCH_LIMIT);
 
-  // PRE-FETCH FULL DETAILS FOR ALL RECIPES IN BATCH SAFELY
   const enrichedFavorites = await Promise.all(
     safeFavoritesList.map((recipe) => fetchRecipeDetailsForPDF(recipe))
   );
@@ -367,19 +346,16 @@ export const downloadFavoritesBatchPDF = async (favoritesList = []) => {
   const margin = 15;
   const contentWidth = pageWidth - margin * 2;
 
-  // Load logo icon once for the entire document
   const logoData = await getLogoDataUrl('/logo.svg');
 
   enrichedFavorites.forEach((recipe, index) => {
-    // Add a new page for every recipe after the first one
     if (index > 0) {
       doc.addPage();
     }
 
     let yPos = 0;
 
-    // 1. BRAND HEADER BANNER
-    doc.setFillColor(16, 185, 129); // Emerald (#10b981)
+    doc.setFillColor(16, 185, 129);
     doc.rect(0, 0, pageWidth, 28, 'F');
 
     if (logoData) {
@@ -395,7 +371,6 @@ export const downloadFavoritesBatchPDF = async (favoritesList = []) => {
       doc.text('GreenPlate Cookbook', margin, 18);
     }
 
-    // Header Subtitle / Date Stamp
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(209, 250, 229);
@@ -410,7 +385,6 @@ export const downloadFavoritesBatchPDF = async (favoritesList = []) => {
 
     yPos = 38;
 
-    // 2. RECIPE TITLE & SUMMARY
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(20);
     doc.setTextColor(15, 23, 42);
@@ -430,7 +404,6 @@ export const downloadFavoritesBatchPDF = async (favoritesList = []) => {
       yPos += summaryLines.length * 4.8 + 6;
     }
 
-    // 3. DIETARY BADGE
     const badgeWidth = 45;
     const badgeHeight = 9;
 
@@ -445,7 +418,6 @@ export const downloadFavoritesBatchPDF = async (favoritesList = []) => {
 
     yPos += badgeHeight + 10;
 
-    // 4. INGREDIENTS SECTION
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(13);
     doc.setTextColor(15, 23, 42);
@@ -481,7 +453,6 @@ export const downloadFavoritesBatchPDF = async (favoritesList = []) => {
 
     yPos += 8;
 
-    // 5. INSTRUCTIONS SECTION
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(13);
     doc.setTextColor(15, 23, 42);
@@ -500,7 +471,6 @@ export const downloadFavoritesBatchPDF = async (favoritesList = []) => {
         yPos = 20;
       }
 
-      // Step Number Badge
       const circleRadius = 3.5;
       const circleCenterX = margin + circleRadius;
       const circleCenterY = yPos;
@@ -516,7 +486,6 @@ export const downloadFavoritesBatchPDF = async (favoritesList = []) => {
         baseline: 'middle'
       });
 
-      // Step Description Text
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9.5);
       doc.setTextColor(51, 65, 85);
@@ -531,7 +500,6 @@ export const downloadFavoritesBatchPDF = async (favoritesList = []) => {
       yPos += blockHeight + 3;
     });
 
-    // 6. FOOTER STAMP WITH RECIPE NUMBERING
     doc.setDrawColor(226, 232, 240);
     doc.setLineWidth(0.4);
     doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
@@ -548,6 +516,5 @@ export const downloadFavoritesBatchPDF = async (favoritesList = []) => {
     );
   });
 
-  // Save as a single combined PDF document
   doc.save('greenplate-favorites_cookbook.pdf');
 };
