@@ -1,12 +1,13 @@
-import { useState, useRef, useEffect } from 'react';
+// src/pages/MyFridge.jsx
+import { useState, useCallback } from 'react';
 import { searchByFridge } from '../api/spoonacular';
-import { cacheRecipes, getMatchingCachedRecipes, getCachedRecipes } from '../utils/cache';
+import { getMatchingCachedRecipes, getCachedRecipes } from '../utils/cache';
+import { useRecipeSearch } from '../hooks/useRecipeSearch';
 import { RecipeCard } from '../components/RecipeCard';
 import { QuotaBadge } from '../components/QuotaBadge';
 import { isValidStructure, sanitizeInput } from '../utils/validators';
-import { canMakeApiCall, incrementQuota, getQuotaStatus, setQuotaExceeded } from '../utils/quota';
+import { canMakeApiCall } from '../utils/quota';
 
-// 20 Curated Vegetarian Staples
 const POPULAR_INGREDIENTS = [
   'tofu', 'chickpeas', 'beans', 'lentils', 
   'spinach', 'broccoli', 'kale', 'zucchini', 
@@ -18,62 +19,29 @@ const POPULAR_INGREDIENTS = [
 export function MyFridge() {
   const [typedText, setTypedText] = useState('');
   const [ingredients, setIngredients] = useState([]); 
-  const [results, setResults] = useState([]);
   const [unrecognizedItems, setUnrecognizedItems] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
   const [inputError, setInputError] = useState('');
-  const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
-  
-  const abortControllerRef = useRef(null);
-  const timerRef = useRef(null);
 
   const MIN_ITEMS = 2;
   const MAX_ITEMS = 5;
 
-  useEffect(() => {
-    const hasQuota = canMakeApiCall('myfridge');
-    const offlineState = !navigator.onLine;
-
-    setIsOffline(offlineState);
-    setIsQuotaExceeded(!hasQuota);
-
-    // If offline or quota exhausted on load, display all cached recipes by default
-    if (!hasQuota || offlineState) {
-      const allCached = getCachedRecipes();
-      setResults(allCached.slice(0, 20));
-      setSearched(true);
-    }
-
-    const handleOnline = () => setIsOffline(false);
-    const handleOffline = () => {
-      setIsOffline(true);
-      const allCached = getCachedRecipes();
-      setResults(allCached.slice(0, 20));
-      setSearched(true);
-    };
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
+  const filterCacheCallback = useCallback((cachedItems, selectedChips) => {
+    const matches = getMatchingCachedRecipes(selectedChips);
+    return matches.length > 0 ? matches : cachedItems.slice(0, 20);
   }, []);
 
-  // Cleanup abort controller and timer on unmount
-  useEffect(() => {
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-    };
-  }, []);
+  const {
+    recipes,
+    setRecipes,
+    loading,
+    searched,
+    setSearched,
+    isQuotaExceeded,
+    isOffline,
+    executeSearch,
+    resetToDefaultCache,
+    quotaStats
+  } = useRecipeSearch('myfridge', searchByFridge, filterCacheCallback);
 
   const addIngredient = (rawItem) => {
     if (loading || ingredients.length >= MAX_ITEMS) return;
@@ -96,7 +64,7 @@ export function MyFridge() {
 
       if (!hasQuota || offlineState) {
         const matches = getMatchingCachedRecipes(updatedChips);
-        setResults(matches.length > 0 ? matches : getCachedRecipes().slice(0, 20));
+        setRecipes(matches.length > 0 ? matches : getCachedRecipes().slice(0, 20));
         setSearched(true);
       }
     } else {
@@ -122,9 +90,9 @@ export function MyFridge() {
     if (!hasQuota || offlineState) {
       if (updatedChips.length > 0) {
         const matches = getMatchingCachedRecipes(updatedChips);
-        setResults(matches.length > 0 ? matches : getCachedRecipes().slice(0, 20));
+        setRecipes(matches.length > 0 ? matches : getCachedRecipes().slice(0, 20));
       } else {
-        setResults(getCachedRecipes().slice(0, 20));
+        setRecipes(getCachedRecipes().slice(0, 20));
       }
       setSearched(true);
     }
@@ -136,25 +104,11 @@ export function MyFridge() {
       e.stopPropagation();
     }
 
-    // IF ALREADY LOADING: STOP THE SEARCH IMMEDIATELY
-    if (loading) {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-      setLoading(false);
-      return;
-    }
-
     let currentIngredients = [...ingredients];
 
-    // If user typed an ingredient into the input box before hitting Search/Enter
     if (typedText.trim() && currentIngredients.length < MAX_ITEMS) {
       const cleaned = sanitizeInput(typedText);
       
-      // Validate the typed entry on submit
       if (!isValidStructure(cleaned)) {
         setInputError('Invalid entry: Must be 2+ letters, max 2 words, no symbols or repeating letters.');
         return;
@@ -173,93 +127,27 @@ export function MyFridge() {
 
     setTypedText('');
     setInputError('');
-
-    setLoading(true);
-    setSearched(true);
     setUnrecognizedItems([]);
-    abortControllerRef.current = new AbortController();
 
-    // CHECK DAILY QUOTA & ONLINE STATUS BEFORE CALL
-    const hasQuota = canMakeApiCall('myfridge');
-    const offlineState = !navigator.onLine;
+    // Execute search via hook, passing callback for unrecognized ingredients calculation
+    executeSearch(currentIngredients, (liveResults) => {
+      const recognizedNames = new Set();
+      liveResults.forEach((recipe) => {
+        recipe.usedIngredients?.forEach((i) => recognizedNames.add(i.name.toLowerCase()));
+        recipe.unusedIngredients?.forEach((i) => recognizedNames.add(i.name.toLowerCase()));
+        recipe.extendedIngredients?.forEach((i) => recognizedNames.add((i.name || i.original || '').toLowerCase()));
+      });
 
-    setIsQuotaExceeded(!hasQuota);
-    setIsOffline(offlineState);
+      const unrecognized = currentIngredients.filter((userChip) => {
+        const cleanChip = userChip.toLowerCase().trim();
+        return !Array.from(recognizedNames).some((recName) => recName.includes(cleanChip));
+      });
 
-    timerRef.current = setTimeout(async () => {
-      if (abortControllerRef.current?.signal.aborted) return;
-
-      let finalResults = [];
-
-      try {
-        if (hasQuota && !offlineState) {
-          // LIVE SPOONACULAR API CALL
-          const rawResults = await searchByFridge(currentIngredients.join(','));
-          
-          if (rawResults && rawResults.length > 0) {
-            finalResults = rawResults.slice(0, 10);
-            cacheRecipes(finalResults);
-            incrementQuota('myfridge');
-          } else {
-            // Fallback to local matching cache if API returns 0 items
-            finalResults = getMatchingCachedRecipes(currentIngredients);
-          }
-
-          const updatedQuotaStatus = getQuotaStatus('myfridge');
-          setIsQuotaExceeded(updatedQuotaStatus.isExceeded);
-
-          const recognizedNames = new Set();
-          finalResults.forEach((recipe) => {
-            recipe.usedIngredients?.forEach((i) => recognizedNames.add(i.name.toLowerCase()));
-            recipe.unusedIngredients?.forEach((i) => recognizedNames.add(i.name.toLowerCase()));
-            recipe.extendedIngredients?.forEach((i) => recognizedNames.add((i.name || i.original || '').toLowerCase()));
-          });
-
-          const unrecognized = currentIngredients.filter((userChip) => {
-            const cleanChip = userChip.toLowerCase().trim();
-            return !Array.from(recognizedNames).some((recName) => recName.includes(cleanChip));
-          });
-
-          setUnrecognizedItems(unrecognized);
-        } else {
-          // LOCAL CACHE OFFLINE FALLBACK
-          finalResults = getMatchingCachedRecipes(currentIngredients);
-        }
-
-        if (!abortControllerRef.current?.signal.aborted) {
-          setResults(finalResults);
-        }
-      } catch (error) {
-        if (!abortControllerRef.current?.signal.aborted) {
-          console.error('API Error / Offline Network Failure:', error);
-
-          // 1. Quota exhausted on Spoonacular's servers
-          if (error.response?.status === 402) {
-            setQuotaExceeded('myfridge');
-            setIsQuotaExceeded(true);
-          } 
-          // 2. Intercept offline drops (including Android silent network failures)
-          else if (!navigator.onLine || error.message === 'Network Error' || !error.response) {
-            setIsOffline(true);
-          }
-
-          // 3. Fallback to local matching cache
-          const fallbackResults = getMatchingCachedRecipes(currentIngredients);
-          
-          // If chip selection yields 0 exact matches, fall back to top 20 default cached recipes
-          setResults(fallbackResults.length > 0 ? fallbackResults : getCachedRecipes().slice(0, 20));
-          setSearched(true); // Guarantees the grid renders reliably on mobile and desktop
-        }
-      } finally {
-        if (!abortControllerRef.current?.signal.aborted) {
-          setLoading(false);
-        }
-      }
-    }, 1200);
+      setUnrecognizedItems(unrecognized);
+    });
   };
-  
+
   const isSearchDisabled = ingredients.length < MIN_ITEMS && !typedText.trim();
-  const quotaStats = getQuotaStatus('myfridge');
 
   return (
     <div className="page">
@@ -279,11 +167,7 @@ export function MyFridge() {
                   setTypedText('');
                   setUnrecognizedItems([]);
                   setInputError('');
-                  setSearched(true);
-                  
-                  // Revert recipe grid back to default cached recipes
-                  const allCached = getCachedRecipes();
-                  setResults(allCached.slice(0, 20));
+                  resetToDefaultCache();
                 }} 
                 className="clear-all-btn"
                 disabled={loading}
@@ -406,14 +290,14 @@ export function MyFridge() {
         </div>
       )}
 
-      {!loading && searched && !inputError && results.length === 0 && (
+      {!loading && searched && !inputError && recipes.length === 0 && (
         <p className="status info">
           No recipes found for your selected ingredients. Try removing or changing an ingredient!
         </p>
       )}
 
       <div className="grid">
-        {results.map((recipe) => (
+        {recipes.map((recipe) => (
           <RecipeCard key={recipe.id} recipe={recipe} />
         ))}
       </div>
