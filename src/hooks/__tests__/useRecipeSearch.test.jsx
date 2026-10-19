@@ -1,10 +1,11 @@
+// src/hooks/__tests__/useRecipeSearch.test.jsx
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useRecipeSearch } from '../useRecipeSearch';
 import * as quotaUtils from '../../utils/quota';
 import * as cacheUtils from '../../utils/cache';
 
-// Mock dei moduli di utility
+// Mock utility modules
 vi.mock('../../utils/quota');
 vi.mock('../../utils/cache');
 
@@ -21,12 +22,10 @@ describe('useRecipeSearch Hook', () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
 
-    // Setup di default dei mock
     quotaUtils.canMakeApiCall.mockReturnValue(true);
     quotaUtils.getQuotaStatus.mockReturnValue({ used: 1, max: 10, isExceeded: false });
     cacheUtils.getCachedRecipes.mockReturnValue(mockRecipes);
 
-    // Mock della connessione di rete a 'online'
     Object.defineProperty(navigator, 'onLine', {
       writable: true,
       configurable: true,
@@ -76,7 +75,6 @@ describe('useRecipeSearch Hook', () => {
 
     expect(result.current.loading).toBe(true);
 
-    // Avanza il timer di debounce da 1200ms
     await act(async () => {
       vi.advanceTimersByTime(1200);
     });

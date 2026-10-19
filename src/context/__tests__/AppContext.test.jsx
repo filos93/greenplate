@@ -1,8 +1,8 @@
-// src/components/__tests__/AppContext.test.jsx
+// src/context/__tests__/AppContext.test.jsx
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { AppProvider, useAppContext } from '../../context/AppContext';
+import { AppProvider, useAppContext } from '../AppContext';
 import { mockSearchVegRecipesData } from '../../__mocks__/mockData';
 
 // Test consumer component to interact with AppContext
