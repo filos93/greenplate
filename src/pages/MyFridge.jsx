@@ -261,7 +261,7 @@ export function MyFridge() {
         </div>
       )}
 
-      {!loading && searched && !inputError && recipes.length === 0 && (
+      {!loading && searched && !isQuotaExceeded && !inputError && recipes.length === 0 && (
         <p className="status info">
           No recipes found for your selected ingredients. Try removing or changing an ingredient!
         </p>

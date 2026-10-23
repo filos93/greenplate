@@ -7,6 +7,9 @@ export function useRecipeSearch(featureKey, fetchApiFn, filterCacheFn) {
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(() => !canMakeApiCall(featureKey));
   const [isOffline, setIsOffline] = useState(() => typeof navigator !== 'undefined' && !navigator.onLine);
 
+  // Dedicated state trigger to force UI badges/banners to re-render on quota state change
+  const [quotaVersion, setQuotaVersion] = useState(0);
+
   // Initialize recipe results lazily with fallback cached items if offline or quota is exhausted
   const [recipes, setRecipes] = useState(() => {
     const hasQuota = canMakeApiCall(featureKey);
@@ -90,6 +93,7 @@ export function useRecipeSearch(featureKey, fetchApiFn, filterCacheFn) {
             results = rawResults.slice(0, 10);
             cacheRecipes(results);
             incrementQuota(featureKey);
+            setQuotaVersion((v) => v + 1);
           } else {
             const allCached = getCachedRecipes();
             const fallback = filterCacheFn ? filterCacheFn(allCached, searchPayload) : allCached;
@@ -114,9 +118,11 @@ export function useRecipeSearch(featureKey, fetchApiFn, filterCacheFn) {
         if (!abortControllerRef.current?.signal.aborted) {
           console.error('API Error / Offline Network Failure:', error);
 
-          if (error.response?.status === 402) {
+          // Handle both 402 and 429 quota exhaustion errors from the server
+          if (error.response?.status === 402 || error.response?.status === 429) {
             setQuotaExceeded(featureKey);
             setIsQuotaExceeded(true);
+            setQuotaVersion((v) => v + 1);
           } else if (!navigator.onLine || error.message === 'Network Error' || !error.response) {
             setIsOffline(true);
           }
@@ -152,6 +158,7 @@ export function useRecipeSearch(featureKey, fetchApiFn, filterCacheFn) {
     setIsOffline,
     executeSearch,
     resetToDefaultCache,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     quotaStats: getQuotaStatus(featureKey)
   };
 }

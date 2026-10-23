@@ -114,7 +114,7 @@ export function VegSearch() {
           if (isMounted) {
             console.error('Failed to fetch suggestions:', error);
 
-            if (error.response?.status === 402) {
+            if (error.response?.status === 402 || error.response?.status === 429) {
               setQuotaExceeded('search');
               setIsQuotaExceeded(true);
             } else if (!navigator.onLine || error.message === 'Network Error' || !error.response) {
@@ -328,7 +328,7 @@ export function VegSearch() {
         quotaStats={quotaStats} 
       />
 
-      {!loading && searched && !validationError && recipes.length === 0 && (
+      {!loading && searched && !isQuotaExceeded && !validationError && recipes.length === 0 && (
         <p className="status info">
           No recipes found. Try searching for another ingredient!
         </p>

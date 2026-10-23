@@ -87,7 +87,7 @@ export const getQuotaStatus = (feature) => {
 };
 
 /**
- * Forces local quota to maxed out when Spoonacular API responds with HTTP 402
+ * Forces local quota to maxed out when Spoonacular API or Vercel Proxy responds with HTTP 402 or 429
  */
 export const setQuotaExceeded = (feature) => {
   const usage = getQuotaUsage();
