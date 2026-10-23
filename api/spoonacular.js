@@ -1,4 +1,5 @@
-// api/spoonacular.js (Serverless Function for Vercel)
+/* global process */
+//Serverless Function for Vercel
 import axios from 'axios';
 import { Redis } from '@upstash/redis';
 
@@ -20,7 +21,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // eslint-disable-next-line no-undef
   const apiKey = process.env.SPOONACULAR_API_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: 'Server configuration error.' });
