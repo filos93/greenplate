@@ -11,7 +11,7 @@ const redis = redisUrl && redisToken
   ? new Redis({ url: redisUrl, token: redisToken })
   : null;
 
-const GLOBAL_DAILY_LIMIT = 150;
+const GLOBAL_DAILY_LIMIT = 50; // Max 50 requests per day similarly to Spoonacular free tier (points) limit
 const IP_SEARCH_LIMIT = 6;    // Max 6 primary queries on VegSearch per IP
 const IP_FRIDGE_LIMIT = 4;    // Max 4 ingredient searches on MyFridge per IP
 
