@@ -6,51 +6,52 @@
 
 ## 👀 Overview
 
-GreenPlate is a responsive web application for discovering and organizing vegetarian recipes. Users can search the Spoonacular recipe database, find dishes based on ingredients already available at home, save favorite recipes, and generate downloadable PDF cookbooks.
+GreenPlate is a responsive web application for discovering and organizing vegetarian recipes. It features a secure serverless backend proxy with feature-specific rate limits for vegetarian recipe search (`VegSearch`) and ingredient matching (`MyFridge`), real-time autocomplete, offline cache resilience, and client-side PDF cookbook generation.
 
 ---
 
 ## ⚡ Key Features
 
-### Recipe Discovery
+### Recipe Discovery (VegSearch)
 
-- Search vegetarian recipes from the Spoonacular API
-- Receive live search suggestions through autocomplete
-- Browse recipe images, ingredients, and preparation instructions
-- Open detailed recipe views
+- Search vegetarian recipes safely via a serverless proxy protecting the Spoonacular API key
+- Receive live search suggestions through input-sanitized autocomplete
+- Browse recipe images, detailed ingredients, and step-by-step preparation instructions
+- View expanded recipe details with strict parameter validation
 
-### Fridge Matcher
+### Fridge Matcher (MyFridge)
 
-- Enter ingredients currently available at home
-- Find recipes that use those ingredients
-- Compare ingredient matches and missing ingredients
-- Sort results according to match relevance
+- Enter ingredients currently available at home to discover matching recipes
+- Compare ingredient matches against missing ingredients
+- Sort results dynamically by match relevance
 
 ### Favorites & Offline Resilience
 
-- Save recipes for later access and preserve collections across sessions
-- Two-tier caching layer (`localStorage` + Upstash Redis) to gracefully handle API quota limits (HTTP 402/429)
-- Use saved recipes to create a custom cookbook
+- Save recipes across sessions using browser `localStorage`
+- Two-tier quota protection combining fail-closed server-side rate limiting (Upstash Redis) with feature-specific limits (6 queries/day for VegSearch, 4 queries/day for MyFridge) and client-side fallback
+- Filter cached recipes while offline or when daily API quotas are exhausted
+- Create custom cookbooks from saved favorites
 
 ### PDF Cookbook Generator
 
-- Export an individual recipe as a PDF
-- Combine up to 30 favorite recipes into one cookbook
-- Automatically format recipe titles, ingredients, and instructions
-- Generate multi-page documents using jsPDF
+- Export individual recipes to formatted PDF documents
+- Combine up to 30 favorite recipes into a single custom cookbook
+- Automatically format recipe titles, ingredients, and preparation steps
+- Multi-page document layout generated client-side with jsPDF
 
 ---
 
 ## 🛠 Tech Stack
 
-- **Frontend:** React 18, JavaScript, HTML5, CSS3
+- **Frontend:** React 18, JavaScript (ES6+), HTML5, CSS3
 - **Build Tool:** Vite
 - **HTTP Client:** Axios
-- **Serverless Backend:** Vercel Serverless Functions (`api/spoonacular.js`)
-- **Database / Quota Enforcement:** Upstash Redis (REST API)
-- **Recipe Data:** Spoonacular API
+- **Serverless Backend:** Vercel Serverless Functions (`api/spoonacular.js`) with strict whitelist validation and parameter sanitization
+- **Rate Limiting / Quota Enforcement:** Upstash Redis (REST API) with fail-closed protection (global & per-feature IP limits)
+- **Recipe Data API:** Spoonacular API
 - **PDF Generation:** jsPDF
-- **Persistence:** Browser LocalStorage
+- **Local Persistence:** Browser `localStorage`
+- **Testing:** Vitest
 - **Deployment:** Vercel
 
 ---
@@ -61,43 +62,39 @@ Get GreenPlate running locally in just a few minutes.
 
 ### Prerequisites
 
-Make sure the following are installed:
+Make sure the following are installed and configured:
 
 - [Node.js](https://nodejs.org/) (v18 or later)
 - [npm](https://www.npmjs.com/)
-- [Vercel CLI](https://vercel.com/docs/cli) (required for local serverless functions and Redis integration)
-
-Install the Vercel CLI:
-
-```bash
-npm install -g vercel
-```
+- [Vercel CLI](https://vercel.com/docs/cli) (`npm install -g vercel`)
+- An [Upstash Redis](https://upstash.com/) database instance (required for rate limiting)
 
 ### Installation
 
 Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/greenplate.git
+git clone [https://github.com/YOUR_USERNAME/greenplate.git](https://github.com/YOUR_USERNAME/greenplate.git)
 cd greenplate
 npm install
 ```
 
 ### Environment Variables
 
-Create a `.env.local` file in the project root:
+Copy .env.example to .env.local in the project root and fill in your keys:
 
 ```env
 SPOONACULAR_API_KEY=your_spoonacular_api_key
 UPSTASH_REDIS_REST_URL=https://your-database.upstash.io
 UPSTASH_REDIS_REST_TOKEN=your_upstash_rest_token
 ```
+🔒 Security Note: Redis keys are mandatory. The serverless proxy operates on a fail-closed (no-go) security policy: incoming API requests return HTTP 500/503 if Redis credentials are missing or unreachable, ensuring the Spoonacular API key is never exposed or exploited without rate limits.
 
 ### Running the Application
 
-#### Full-Stack Development (Recommended)
+#### Full-Stack Development (Recommended for Live Data)
 
-Starts the React frontend together with local Vercel serverless functions and Upstash Redis integration.
+Runs the React frontend alongside local Vercel serverless functions and Upstash Redis rate limiting.
 
 ```bash
 npm run vercel:dev
@@ -109,17 +106,17 @@ Open the application at:
 http://localhost:3000
 ```
 
-Ideal for testing:
+Recommended for testing:
 
-- Recipe search and autocomplete
-- Spoonacular API integration
-- Redis caching
-- Rate limiting and quota handling
-- End-to-end application functionality
+- Live recipe search (VegSearch) and autocomplete
+- Ingredient matching (MyFridge)
+- Serverless API proxy and sanitization
+- Redis rate limiting and quota enforcement
+- End-to-end network flows and error handling
 
-#### Frontend-Only Development
+#### Frontend-Only Development (Offline / UI Mode)
 
-Starts the Vite development server without backend services.
+Runs the Vite development server without proxy backend services.
 
 ```bash
 npm run dev
@@ -131,24 +128,18 @@ Open the application at:
 http://localhost:5173
 ```
 
-Ideal for:
-
-- UI development
-- Styling and layout updates
-- Component development
-- Offline testing
-- Rapid frontend iteration
+Note: In frontend-only mode, live API requests are bypassed. The application operates strictly via local localStorage cache, ideal for UI component tweaking, styling, and offline functionality testing.
 
 ### Available Scripts
 
 ```bash
-npm run dev          # Start Vite development server
-npm run vercel:dev   # Start local full-stack environment
+npm run dev          # Start Vite development server (offline UI mode)
+npm run vercel:dev   # Start local full-stack environment with Vercel CLI
 npm run build        # Create production build
 npm run preview      # Preview production build locally
-npm run lint         # Run ESLint
-npm run test         # Run test suite
-npm run test:watch   # Run tests in watch mode
+npm run lint         # Run ESLint check
+npm run test         # Run single-pass Vitest suite
+npm run test:watch   # Run Vitest in interactive watch mode
 ```
 
 ---
