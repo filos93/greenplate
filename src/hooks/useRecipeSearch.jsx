@@ -58,7 +58,6 @@ export function useRecipeSearch(featureKey, fetchApiFn, filterCacheFn) {
   }, []);
 
   const executeSearch = useCallback((searchPayload, onSuccess) => {
-    // Cancel any previous pending search timer or ongoing HTTP request
     if (abortControllerRef.current) abortControllerRef.current.abort();
     if (timerRef.current) clearTimeout(timerRef.current);
 
@@ -115,7 +114,6 @@ export function useRecipeSearch(featureKey, fetchApiFn, filterCacheFn) {
         if (!abortControllerRef.current?.signal.aborted) {
           console.error('API Error / Offline Network Failure:', error);
 
-          // Handle both 402 and 429 quota exhaustion errors from the server
           if (error.response?.status === 402 || error.response?.status === 429) {
             setQuotaExceeded(featureKey);
             setIsQuotaExceeded(true);
@@ -135,7 +133,23 @@ export function useRecipeSearch(featureKey, fetchApiFn, filterCacheFn) {
         }
       }
     }, 1200);
-  }, [featureKey, fetchApiFn, filterCacheFn]); // Removed `loading` dependency
+  }, [featureKey, fetchApiFn, filterCacheFn]);
+
+  // NEW: Centralized live cache filtering during typing when offline/quota is exhausted
+  const filterLocalCache = useCallback((searchTerm) => {
+    const hasQuota = canMakeApiCall(featureKey);
+    const offlineState = typeof navigator !== 'undefined' && !navigator.onLine;
+
+    if (!hasQuota || offlineState) {
+      const allCached = getCachedRecipes();
+      if (searchTerm && searchTerm.trim().length >= 2) {
+        const fallback = filterCacheFn ? filterCacheFn(allCached, searchTerm) : allCached;
+        setRecipes(Array.isArray(fallback) ? fallback : []);
+      } else {
+        setRecipes(allCached.slice(0, 20));
+      }
+    }
+  }, [featureKey, filterCacheFn]);
 
   const resetToDefaultCache = useCallback(() => {
     const allCached = getCachedRecipes();
@@ -154,6 +168,7 @@ export function useRecipeSearch(featureKey, fetchApiFn, filterCacheFn) {
     isOffline,
     setIsOffline,
     executeSearch,
+    filterLocalCache,
     resetToDefaultCache,
     quotaStats: getQuotaStatus(featureKey)
   };

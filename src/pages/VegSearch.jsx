@@ -81,6 +81,7 @@ export function VegSearch() {
     isOffline,
     setIsOffline,
     executeSearch,
+    filterLocalCache,
     resetToDefaultCache,
     quotaStats
   } = useRecipeSearch('search', searchVegRecipes, filterCacheCallback);
@@ -165,18 +166,8 @@ export function VegSearch() {
       setValidationError('');
     }
 
-    const cleaned = sanitizeInput(rawVal);
-    const hasQuota = canMakeApiCall('search');
-    const offlineState = !navigator.onLine;
-
-    if (!hasQuota || isQuotaExceeded || offlineState) {
-      const allCached = getCachedRecipes();
-      if (cleaned.length >= 2 && isValidSearchQuery(rawVal)) {
-        setRecipes(filterRecipes(allCached, cleaned));
-      } else {
-        setRecipes(allCached.slice(0, 20));
-      }
-    }
+    // Delegato interamente all'hook useRecipeSearch
+    filterLocalCache(rawVal);
   };
 
   const handleKeyDown = (e) => {
