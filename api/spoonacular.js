@@ -26,6 +26,12 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Server configuration error.' });
   }
 
+  // Fail-Closed (No-Go): Require Redis configuration to protect API key
+  if (!redis) {
+    console.error('[SECURITY] Redis configuration missing. Request blocked.');
+    return res.status(500).json({ error: 'Server security configuration error.' });
+  }
+
   const { action, id, query, includeIngredients, sort } = req.query;
 
   // Extract client IP address from Vercel headers
@@ -42,27 +48,26 @@ export default async function handler(req, res) {
     : `quota:ip:${clientIp}:search:${today}`;
 
   // 2. Server-side Quota Check via Redis (Global check enforced on ALL actions)
-  if (redis) {
-    try {
-      const [globalUsage, ipUsage] = await Promise.all([
-        redis.get(globalQuotaKey),
-        action === 'complexSearch' ? redis.get(ipFeatureKey) : Promise.resolve(null)
-      ]);
+  try {
+    const [globalUsage, ipUsage] = await Promise.all([
+      redis.get(globalQuotaKey),
+      action === 'complexSearch' ? redis.get(ipFeatureKey) : Promise.resolve(null)
+    ]);
 
-      if (parseInt(globalUsage || 0, 10) >= GLOBAL_DAILY_LIMIT) {
-        return res.status(429).json({ error: 'Global daily API quota exceeded.' });
-      }
-
-      if (action === 'complexSearch') {
-        const featureLimit = isFridgeSearch ? IP_FRIDGE_LIMIT : IP_SEARCH_LIMIT;
-        if (parseInt(ipUsage || 0, 10) >= featureLimit) {
-          return res.status(429).json({ error: `Daily request limit reached for this feature (${featureLimit}/day).` });
-        }
-      }
-    } catch (redisError) {
-      console.error('Redis Quota Check Error:', redisError.message);
-      // Fall through to proceed if Redis experiences a temporary connection issue
+    if (parseInt(globalUsage || 0, 10) >= GLOBAL_DAILY_LIMIT) {
+      return res.status(429).json({ error: 'Global daily API quota exceeded.' });
     }
+
+    if (action === 'complexSearch') {
+      const featureLimit = isFridgeSearch ? IP_FRIDGE_LIMIT : IP_SEARCH_LIMIT;
+      if (parseInt(ipUsage || 0, 10) >= featureLimit) {
+        return res.status(429).json({ error: `Daily request limit reached for this feature (${featureLimit}/day).` });
+      }
+    }
+  } catch (redisError) {
+    console.error('Redis Quota Check Error:', redisError.message);
+    // Fail-Closed: Block request if Redis service is unreachable to protect API key
+    return res.status(503).json({ error: 'Rate limiting service unavailable. Try again later.' });
   }
 
   const BASE_URL = 'https://api.spoonacular.com/recipes';
@@ -117,22 +122,20 @@ export default async function handler(req, res) {
     const response = await axios.get(targetUrl, { params });
 
     // 3. Increment Redis usage counters (Global increment on ALL actions)
-    if (redis) {
-      try {
-        const pipeline = redis.pipeline();
-        
-        pipeline.incr(globalQuotaKey);
-        pipeline.expire(globalQuotaKey, 172800); // 48-hour expiration auto-cleanup
-        
-        if (action === 'complexSearch') {
-          pipeline.incr(ipFeatureKey);
-          pipeline.expire(ipFeatureKey, 172800); // 48-hour expiration auto-cleanup
-        }
-        
-        await pipeline.exec();
-      } catch (incrError) {
-        console.error('Redis Increment Error:', incrError.message);
+    try {
+      const pipeline = redis.pipeline();
+      
+      pipeline.incr(globalQuotaKey);
+      pipeline.expire(globalQuotaKey, 172800); // 48-hour expiration auto-cleanup
+      
+      if (action === 'complexSearch') {
+        pipeline.incr(ipFeatureKey);
+        pipeline.expire(ipFeatureKey, 172800); // 48-hour expiration auto-cleanup
       }
+      
+      await pipeline.exec();
+    } catch (incrError) {
+      console.error('Redis Increment Error:', incrError.message);
     }
 
     return res.status(200).json(response.data);
