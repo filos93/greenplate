@@ -74,7 +74,7 @@ Make sure the following are installed and configured:
 Clone the repository and install dependencies:
 
 ```bash
-git clone [https://github.com/YOUR_USERNAME/greenplate.git](https://github.com/YOUR_USERNAME/greenplate.git)
+git clone https://github.com/filos93/greenplate.git
 cd greenplate
 npm install
 ```
