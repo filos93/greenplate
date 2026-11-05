@@ -1,7 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getRecipeAutocomplete, searchVegRecipes } from '../api/spoonacular';
-import { getCachedRecipes } from '../utils/cache';
 import { useDebounce } from '../hooks/useDebounce';
 import { useRecipeSearch } from '../hooks/useRecipeSearch';
 import { RecipeCard } from '../components/RecipeCard';
@@ -122,13 +121,9 @@ export function VegSearch() {
               setIsOffline(true);
             }
 
+            // Hide suggestions silently without abruptly resetting main search results
             setSuggestions([]);
             setShowSuggestions(false);
-
-            const allCached = getCachedRecipes();
-            const matches = filterRecipes(allCached, cleaned);
-            setRecipes(matches.length > 0 ? matches : allCached.slice(0, 20));
-            setSearched(true);
           }
         }
       } else {
@@ -144,7 +139,7 @@ export function VegSearch() {
     return () => {
       isMounted = false;
     };
-  }, [debouncedQuery, userIsTyping, isQuotaExceeded, setIsQuotaExceeded, setIsOffline, setRecipes, setSearched]);
+  }, [debouncedQuery, userIsTyping, isQuotaExceeded, setIsQuotaExceeded, setIsOffline]);
 
   // Click outside listener
   useEffect(() => {
