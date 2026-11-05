@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_SPOONACULAR_API_KEY: ${VITE_SPOONACULAR_API_KEY}
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN}
+    container_name: greenplate-frontend
+    ports:
+      - "8080:80"
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped

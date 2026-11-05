@@ -1,14 +1,8 @@
 # 🚀 DevOps Implementation To-Do List — Greenplate
 
-## Step 1: Exploration & Project Setup
-- [X] Document project architecture and 3 environments (Dev, Staging, Production) in `README.md`.
-- [X] Document choice of CI/CD tool (**GitHub Actions**) with technical justification.
-- [X] Add project roadmap and local execution commands to `README.md`.
+
 
 ## Step 2: Containerization (Local Environment)
-- [ ] Create `Dockerfile` in the root directory (Multi-stage build: Node.js builder -> Nginx Alpine runner).
-- [ ] Create `nginx.conf` for fallback SPA client-side routing (`try_files $uri $uri/ /index.html;`).
-- [ ] Create `docker-compose.yml` to orchestrate local execution.
 - [ ] Test container locally:
   - Run `docker compose up --build -d`
   - Verify app loads properly on `http://localhost:8080`
