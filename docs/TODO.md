@@ -1,28 +1,7 @@
 # 🚀 DevOps Implementation To-Do List — Greenplate
 
-## Step 3: Security & Secret Management
-- [X] Verify `.env` is created locally and contains necessary keys.
-- [X] Ensure `.env` is listed in `.gitignore`.
-- [X] Audit Git history to confirm no secrets were committed (`git status`, inspect commit logs).
-- [ ] Configure Repository Secrets in GitHub (`Settings -> Secrets and variables -> Actions`):
-  - [ ] `VERCEL_TOKEN`
-  - [ ] `VERCEL_ORG_ID`
-  - [ ] `VERCEL_PROJECT_ID`
-- [ ] Verify secret masking in GitHub Actions execution logs (`***`).
-
-## Step 4: Continuous Integration (CI Pipeline)
-- [ ] Create directory `.github/workflows/`.
-- [ ] Create `ci-cd.yml` workflow file triggered on `push` and `pull_request` to `main`.
-- [ ] Configure `lint-and-test` job:
-  - Node.js setup & dependency installation (`npm ci`).
-  - Code quality check (`npm run lint`).
-  - Build validation (`npm run build`).
-- [ ] Configure `docker-build-check` job:
-  - Verify Docker image builds successfully without pushing.
-- [ ] Test pipeline failure: temporarily force a linting error to ensure the pipeline turns red and blocks bad code.
-
 ## Step 5: Continuous Deployment (CD Pipeline & Public Deploy)
-- [ ] Extend `ci-cd.yml` with `deploy-production` job (triggered only on push to `main` after CI succeeds).
+- [X] Extend `ci-cd.yml` with `deploy-production` job (triggered only on push to `main` after CI succeeds).
 - [ ] Configure Vercel CLI steps in workflow (`vercel pull`, `vercel build`, `vercel deploy`).
 - [ ] Push changes to `main` and confirm automatic deployment.
 - [ ] Verify app is live and reachable on public Vercel URL.
