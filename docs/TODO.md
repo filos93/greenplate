@@ -1,26 +1,13 @@
 # 🚀 DevOps Implementation To-Do List — Greenplate
 
-
-
-## Step 2: Containerization (Local Environment)
-- [ ] Test container locally:
-  - Run `docker compose up --build -d`
-  - Verify app loads properly on `http://localhost:8080`
-  - Run `docker compose down`
-- [ ] Document all Docker commands in `README.md`.
-
 ## Step 3: Security & Secret Management
-- [ ] Verify `.env` is created locally and contains necessary keys (`VITE_SPOONACULAR_API_KEY`, `VITE_SENTRY_DSN`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `VERCEL_TOKEN`, etc.).
-- [ ] Ensure `.env` is listed in `.gitignore`.
-- [ ] Audit Git history to confirm no secrets were committed (`git status`, inspect commit logs).
+- [X] Verify `.env` is created locally and contains necessary keys.
+- [X] Ensure `.env` is listed in `.gitignore`.
+- [X] Audit Git history to confirm no secrets were committed (`git status`, inspect commit logs).
 - [ ] Configure Repository Secrets in GitHub (`Settings -> Secrets and variables -> Actions`):
   - [ ] `VERCEL_TOKEN`
   - [ ] `VERCEL_ORG_ID`
   - [ ] `VERCEL_PROJECT_ID`
-  - [ ] `VITE_SPOONACULAR_API_KEY`
-  - [ ] `VITE_SENTRY_DSN`
-  - [ ] `UPSTASH_REDIS_REST_URL`
-  - [ ] `UPSTASH_REDIS_REST_TOKEN`
 - [ ] Verify secret masking in GitHub Actions execution logs (`***`).
 
 ## Step 4: Continuous Integration (CI Pipeline)

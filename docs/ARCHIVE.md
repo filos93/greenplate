@@ -1,5 +1,16 @@
 # 🚀 DevOps Implementation ARCHIVE List — Greenplate
 
+[07/11/2026]
+
+## Step 2: Containerization (Local Environment)
+- [X] Test container locally:
+  - Run `docker compose up --build -d`
+  - Verify app loads properly on `http://localhost:8080`
+  - Run `docker compose down`
+- [X] Document all Docker commands in `README.md`.
+
+---
+
 [05/01/2026]
 
 ## Step 2: Containerization (Local Environment)
