@@ -8,6 +8,8 @@ import { VegSearch } from './pages/VegSearch';
 import { MyFridge } from './pages/MyFridge';
 import { Favorites } from './pages/Favorites';
 
+const unusedDevOpsTestVariable = "trigger_eslint_error";
+
 export default function App() {
   return (
     <AppProvider>
