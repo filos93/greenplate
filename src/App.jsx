@@ -13,6 +13,26 @@ export default function App() {
     <AppProvider>
       <BrowserRouter>
         <Navbar />
+        {/* Temporary DevOps Sentry Crash Simulation Button */}
+        <div style={{ textAlignment: 'center', margin: '15px 0' }}>
+          <button
+            onClick={() => {
+              throw new Error("DevOps Incident Simulation: Sentry Test Crash");
+            }}
+            style={{
+              backgroundColor: '#e53e3e',
+              color: '#ffffff',
+              padding: '8px 16px',
+              borderRadius: '6px',
+              border: 'none',
+              fontWeight: 'bold',
+              cursor: 'pointer'
+            }}
+          >
+            ⚠️ Simulate Production Crash
+          </button>
+        </div>
+
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/search" element={<VegSearch />} />
