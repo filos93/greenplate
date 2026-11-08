@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
-import { Navbar } from './components/NavBar';
+import { Navbar } from './components/Navbar';
 
 // Page Imports
 import { Home } from './pages/Home';
@@ -13,8 +13,9 @@ export default function App() {
     <AppProvider>
       <BrowserRouter>
         <Navbar />
-        {/* Temporary DevOps Sentry Crash Simulation Button */}
-        <div style={{ textAlignment: 'center', margin: '15px 0' }}>
+
+        {/* Temporary Sentry Incident Simulation Button
+        <div style={{ textAlign: 'center', margin: '15px 0' }}>
           <button
             onClick={() => {
               throw new Error("DevOps Incident Simulation: Sentry Test Crash");
@@ -32,6 +33,7 @@ export default function App() {
             ⚠️ Simulate Production Crash
           </button>
         </div>
+        */}
 
         <Routes>
           <Route path="/" element={<Home />} />
