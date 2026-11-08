@@ -1,12 +1,5 @@
 # 🚀 DevOps Implementation To-Do List — Greenplate
 
-## Step 5: Continuous Deployment (CD Pipeline & Public Deploy)
-- [X] Extend `ci-cd.yml` with `deploy-production` job (triggered only on push to `main` after CI succeeds).
-- [ ] Configure Vercel CLI steps in workflow (`vercel pull`, `vercel build`, `vercel deploy`).
-- [ ] Push changes to `main` and confirm automatic deployment.
-- [ ] Verify app is live and reachable on public Vercel URL.
-- [ ] Save pipeline run URL and public app URL for project submission.
-
 ## Step 6: Monitoring & Incident Simulation
 - [ ] **Sentry Error Tracking:**
   - [ ] Install `@sentry/react`.

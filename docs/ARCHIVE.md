@@ -1,5 +1,16 @@
 # 🚀 DevOps Implementation ARCHIVE List — Greenplate
 
+[08/11/2026]
+
+## Step 5: Continuous Deployment (CD Pipeline & Public Deploy)
+- [X] Extend `ci-cd.yml` with `deploy-production` job (triggered only on push to `main` after CI succeeds).
+- [X] Configure Vercel CLI steps in workflow (`vercel pull`, `vercel build`, `vercel deploy`).
+- [X] Push changes to `main` and confirm automatic deployment.
+- [X] Verify app is live and reachable on public Vercel URL.
+- [X] Save pipeline run URL and public app URL for project submission.
+
+---
+
 [07/11/2026]
 
 ## Step 4: Continuous Integration (CI Pipeline)
