@@ -1,140 +1,239 @@
-<img src="public/logo.svg" alt="greenplate-app" width="200" />
+<img src="public/logo.svg" alt="GreenPlate" width="200"/>
 
 # GreenPlate
 
-**Vegetarian recipe discovery, fridge matching, and PDF cookbook generation with DevOps CI/CD pipeline**
+> Cloud-native vegetarian recipe platform demonstrating modern full-stack development, DevOps automation, observability, and secure API integration.
 
 ---
 
-## 👀 Overview
+## 📖 Overview
 
-GreenPlate is a responsive web application for discovering and organizing vegetarian recipes. It features a secure serverless backend proxy with feature-specific rate limits for vegetarian recipe search (`VegSearch`) and ingredient matching (`MyFridge`), real-time autocomplete, offline cache resilience, client-side PDF cookbook generation, and a fully automated DevOps CI/CD pipeline.
+GreenPlate is a serverless web application that enables users to discover vegetarian recipes, find recipes based on available ingredients, save favorites, and generate PDF cookbooks.
+
+The project demonstrates a complete software delivery lifecycle, from local development and testing through automated deployment, monitoring, and incident response.
+
+### Key Engineering Objectives
+
+- Secure API consumption through a serverless proxy
+- Redis-backed rate limiting and quota protection
+- Containerized local execution with Docker
+- Automated CI/CD using GitHub Actions and Vercel
+- Production monitoring and alerting
+- Multi-environment deployment strategy
+- Cloud-native architecture and operational resilience
 
 ---
 
-# 🏗️ DevOps Architecture & 3-Tier Environments
+## ✨ Features
 
-## System Architecture
+### 🔎 Recipe Discovery
+
+- Vegetarian recipe search powered by Spoonacular
+- Live search autocomplete
+- Detailed ingredients and cooking instructions
+- Input validation and sanitization
+
+### 🥦 MyFridge Ingredient Matching
+
+- Search recipes using available ingredients
+- Dynamic relevance-based ranking
+- Missing ingredient comparison
+
+### ❤️ Favorites & Offline Support
+
+- Persistent favorites using Local Storage
+- Cached recipe availability during outages or quota exhaustion
+- Offline browsing support
+
+### 📄 PDF Cookbook Generation
+
+- Export individual recipes to PDF
+- Generate cookbooks containing up to 30 favorite recipes
+
+### 🛡 API Protection & Rate Limiting
+
+- Server-side Spoonacular API protection
+- Feature-specific request quotas
+- Upstash Redis rate limiting
+- Fail-closed architecture for enhanced security
+
+---
+
+# 🏗 Architecture
+
+## High-Level System Design
 
 ```text
-[ Client Browser ]
-       │
-       ├───> [ React SPA Frontend (CDN / Nginx Alpine Container) ]
-       │
-       └───> [ Vercel Serverless Proxy (api/spoonacular.js) ]
-                   │
-                   ├───> [ Upstash Redis REST API ] (Rate Limiting via Client IP)
-                   └───> [ Spoonacular API ] (Recipe Data Provider)
+[ Browser ]
+      │
+      ▼
+[ React Frontend ]
+      │
+      ▼
+[ Vercel Serverless Functions ]
+      │
+      ├── Upstash Redis
+      │      Rate Limiting
+      │
+      └── Spoonacular API
+             Recipe Data
 ```
 
 ---
 
-## Environment Definitions
+## 🚀 CI/CD Pipeline
 
-| Parameter | Development (Local) | Staging | Production |
+```text
+Developer
+    │
+    ▼
+GitHub Repository
+    │
+    ▼
+GitHub Actions
+    │
+    ├── ESLint
+    ├── Vitest
+    ├── Production Build
+    └── Docker Build Validation
+    │
+    ▼
+Vercel Deployment
+    │
+    ▼
+Production Environment
+    │
+    ├── Sentry Monitoring
+    └── UptimeRobot Availability Checks
+```
+
+---
+
+# 🌍 Environment Strategy
+
+| Environment | Purpose | Access |
+|------------|------------|------------|
+| Development | Local development and debugging | localhost |
+| Staging | Pull request validation and QA | Vercel Preview Deployments |
+| Production | Public-facing deployment | https://flg-greenplate.vercel.app |
+
+### Configuration Matrix
+
+| Configuration | Development | Staging | Production |
 |------------|------------|------------|------------|
-| Purpose | Local feature development, debugging, and container testing | Integration & QA on feature branches / PRs | Final public release to end-users |
-| Runtime Server | `npm run vercel:dev` / Docker (`localhost:8080`) | Vercel Preview Deployments (Automated on PR) | Vercel Production (`main` branch) |
-| Data & Quota | Mock API / Dev Keys (Upstash & Spoonacular) | Staging Upstash Redis DB / Quota isolation | Production Upstash Redis DB + Live Spoonacular |
-| Error Tracking | Disabled / `development` environment on Sentry | `staging` environment on Sentry | `production` environment on Sentry |
-| Public Access | `http://localhost:3000` or `http://localhost:8080` | `https://greenplate-git-<branch>.vercel.app` | <https://flg-greenplate.vercel.app/> |
+| Runtime | Local Vercel | Vercel Preview | Vercel Production |
+| Monitoring | Optional | Enabled | Enabled |
+| Redis | Development DB | Staging DB | Production DB |
+| Error Tracking | Sentry Development | Sentry Staging | Sentry Production |
 
 ---
 
-## ⚙️ CI/CD Stack & Technical Justification
+# ⚙️ Technology Stack
 
-For automation, **GitHub Actions** was selected as the CI/CD orchestrator.
-
-### Technical Justifications
-
-1. **Native GitHub Integration**  
-   Operates directly on GitHub-managed runners (`ubuntu-latest`) without requiring self-hosted infrastructure (e.g., Jenkins).
-
-2. **Ecosystem of Official Actions**  
-   Leverages verified actions (`actions/setup-node`, `docker/build-push-action`, Vercel CLI), reducing workflow overhead and maintenance risk.
-
-3. **Secret Masking**  
-   GitHub Actions automatically redacts environment variables (`VERCEL_TOKEN`, `UPSTASH_REDIS_REST_URL`, API keys) in execution logs (`***`).
-
-4. **Quality Gates**  
-   Failed linting (`npm run lint`), build failures, or broken Docker builds automatically block bad code from reaching the production branch.
-
----
-
-## 🗺️ DevOps Project Roadmap
-
-- [x] **Step 1: Exploration & Project Setup**  
-  Architecture, 3-tier environment definitions, and CI/CD justification.
-
-- [x] **Step 2: Containerization**  
-  Multi-stage `Dockerfile`, `nginx.conf` SPA routing, and local `docker-compose.yml`.
-
-- [ ] **Step 3: Security & Secrets Management**  
-  `.env` local setup, Git history audit, and GitHub Repository Secrets configuration.
-
-- [ ] **Step 4: Continuous Integration (CI)**  
-  GitHub Actions pipeline for linting, code compilation, and Docker build verification.
-
-- [ ] **Step 5: Continuous Deployment (CD)**  
-  Automated zero-downtime deployment to Vercel Production upon pushing to `main`.
-
-- [ ] **Step 6: Monitoring & Alert Interpretation**  
-  Sentry React SDK error tracking, UptimeRobot HTTP monitoring, and alert response workflow.
-
----
-
-# ⚡ Key Features
-
-## Recipe Discovery (VegSearch)
-
-- Search vegetarian recipes safely via a serverless proxy protecting the Spoonacular API key.
-- Receive live search suggestions through input-sanitized autocomplete.
-- Browse recipe images, detailed ingredients, and step-by-step preparation instructions.
-
-## Fridge Matcher (MyFridge)
-
-- Enter available ingredients to discover matching recipes.
-- Compare ingredient matches against missing ingredients and sort dynamically by relevance.
-
-## Favorites & Offline Resilience
-
-- Save recipes across sessions using browser `localStorage`.
-- Two-tier quota protection combining fail-closed server-side rate limiting (Upstash Redis) with feature-specific limits and client-side fallback.
-- Filter cached recipes while offline or when daily API quotas are exhausted.
-
-## PDF Cookbook Generator
-
-- Export individual recipes or up to 30 favorites into a formatted client-side PDF using jsPDF.
-
----
-
-# 🛠 Tech Stack
-
-| Layer | Technologies |
+| Layer | Technology |
 |---------|---------|
-| Frontend | React 18, JavaScript (ES6+), HTML5, CSS3, Tailwind CSS |
-| Build & Testing | Vite, Vitest |
+| Frontend | React 18, Tailwind CSS |
 | HTTP Client | Axios |
-| Serverless Backend | Vercel Serverless Functions (`api/spoonacular.js`) |
-| Rate Limiting | Upstash Redis REST API |
-| Containerization | Docker, Nginx Alpine, Docker Compose |
-| CI/CD | GitHub Actions, Vercel CLI |
-| Monitoring | Sentry (React SDK), UptimeRobot |
-| PDF Generation | jsPDF |
+| Build Tool | Vite |
+| Testing | Vitest |
+| Backend | Vercel Serverless Functions |
+| Rate Limiting | Upstash Redis |
+| Monitoring & Observability | Sentry, Vercel Logs |
+| Availability Monitoring | UptimeRobot |
+| CI/CD | GitHub Actions |
+| Containerization | Docker, Nginx |
 | Deployment | Vercel |
+| PDF Generation | jsPDF |
 
 ---
 
-# 💻 Getting Started & Local Execution
+# 🏛 Architecture Decisions
+
+| Decision | Justification |
+|-----------|-----------|
+| Vercel Functions | Eliminate backend infrastructure management while protecting API credentials |
+| Upstash Redis | Serverless-compatible rate limiting with REST API support |
+| GitHub Actions | Native CI/CD integration with automated quality gates |
+| Docker & Nginx | Reproducible builds and production-like local validation |
+| Sentry | Centralized application error monitoring |
+| UptimeRobot | Independent uptime monitoring |
+| Multi-Environment Deployment | Safe separation of development, testing, and production workloads |
+
+---
+
+# 🔒 Security Controls
+
+The application implements multiple security controls:
+
+- Spoonacular API credentials never exposed to the browser
+- All external API requests routed through a serverless proxy
+- Redis-backed server-side rate limiting
+- Environment-based configuration management
+- GitHub Repository Secrets for credential storage
+- Fail-closed design when Redis becomes unavailable
+- Production monitoring and alerting for rapid issue detection
+
+---
+
+# 📊 Monitoring & Incident Response
+
+## Sentry Error Monitoring
+
+### Alert Triggers
+
+- React runtime exceptions
+- Unhandled API request failures
+- Client-side crashes
+- Serverless execution errors
+
+### Resolution Workflow
+
+1. Review issue details in Sentry
+2. Analyze stack trace, breadcrumbs, and environment metadata
+3. Reproduce locally
+4. Implement and validate a fix
+5. Push update and allow CI/CD execution
+6. Verify successful deployment
+7. Confirm resolution in Sentry
+
+---
+
+## UptimeRobot Availability Monitoring
+
+### Monitored Endpoint
+
+```text
+https://flg-greenplate.vercel.app
+```
+
+### Monitoring Frequency
+
+```text
+Every 5 minutes
+```
+
+### Resolution Workflow
+
+1. Check Vercel platform status
+2. Review recent GitHub Actions workflows
+3. Analyze Vercel runtime logs
+4. Verify Upstash Redis availability
+5. Verify Spoonacular API status and quota
+6. Roll back deployment if required
+7. Confirm recovery after HTTP 200 restoration
+
+---
+
+# 💻 Getting Started
 
 ## Prerequisites
 
-Ensure that the following are installed:
+- Node.js 18+
+- npm
+- Docker Desktop
+- Vercel CLI
 
-1. [Node.js](https://nodejs.org/) (v18+)
-2. [npm](https://www.npmjs.com/)
-3. [Docker Desktop](https://www.docker.com/) (v24+)
-4. Vercel CLI
+Install the Vercel CLI:
 
 ```bash
 npm install -g vercel
@@ -142,197 +241,136 @@ npm install -g vercel
 
 ---
 
-## Installation & Environment Variables
-
-### Clone the Repository
+## Installation
 
 ```bash
 git clone https://github.com/filos93/greenplate.git
+
 cd greenplate
+
 npm install
 ```
 
-### Configure Environment Variables
+---
 
-Copy `.env.example` to `.env.local`:
+## Environment Variables
+
+Create:
+
+```bash
+.env.local
+```
+
+Example configuration:
 
 ```env
 SPOONACULAR_API_KEY=your_spoonacular_api_key
-UPSTASH_REDIS_REST_URL=https://your-database.upstash.io
-UPSTASH_REDIS_REST_TOKEN=your_upstash_rest_token
-```
 
-> 🔒 **Security Note:**  
-> The serverless proxy operates on a fail-closed policy. Requests return HTTP 500/503 if Redis credentials are missing, ensuring the Spoonacular API key is never exposed without active rate limiting.
+UPSTASH_REDIS_REST_URL=https://your-db.upstash.io
+
+UPSTASH_REDIS_REST_TOKEN=your_upstash_token
+```
 
 ---
 
-## Running Locally
+# ▶️ Running Locally
 
-### 1. Full-Stack Development (Recommended)
-
-Runs the React frontend together with local Vercel serverless functions and Upstash Redis rate limiting.
+## Full-Stack Development
 
 ```bash
 npm run vercel:dev
 ```
 
-Open:
+Application URL:
 
-<http://localhost:3000>
-
----
-
-### 2. Local Containerized Execution (Docker Benchmark)
-
-Used to validate the multi-stage Docker build and Nginx runtime configuration.
-
-```bash
-# Build and start container
-docker compose up --build -d
-
-# Verify status and logs
-docker compose ps
-docker compose logs -f frontend
-
-# Stop containers
-docker compose down
+```text
+http://localhost:3000
 ```
 
-Open:
+---
 
-<http://localhost:8080>
+## Docker Deployment
+
+```bash
+docker compose up --build -d
+```
+
+Access:
+
+```text
+http://localhost:8080
+```
 
 ---
 
-### 3. Frontend-Only Development (Offline/UI Mode)
+## Frontend-Only Development
 
 ```bash
 npm run dev
 ```
 
-Open:
+Access:
 
-<http://localhost:5173>
+```text
+http://localhost:5173
+```
 
 ---
 
 # 📜 Available Scripts
 
 ```bash
-npm run dev          # Start Vite dev server (offline UI mode)
+npm run dev
+npm run vercel:dev
 
-npm run vercel:dev   # Start local full-stack environment with Vercel CLI
+npm run build
+npm run preview
 
-npm run build        # Create production build artifact
+npm run lint
 
-npm run preview      # Preview production build locally
-
-npm run lint         # Run ESLint quality checks
-
-npm run test         # Run single-pass Vitest suite
-
-npm run test:watch   # Run Vitest watch mode
+npm run test
+npm run test:watch
 ```
 
 ---
 
-# 📁 Project Architecture
+# 📁 Project Structure
 
 ```text
 greenplate/
 ├── .github/
-│   └── workflows/          # GitHub Actions CI/CD pipelines
+│   └── workflows/
 ├── api/
-│   └── spoonacular.js      # Serverless API proxy & Upstash rate limiter
-├── public/                 # Static assets and logos
+│   └── spoonacular.js
+├── public/
 ├── src/
-│   ├── __mocks__/          # Vitest mock datasets
-│   ├── api/                # Axios API client layer
-│   ├── components/         # React UI components & tests
-│   ├── context/            # Global state context
-│   ├── hooks/              # Custom React hooks
-│   ├── pages/              # Main application pages
-│   ├── styles/             # Application styling
-│   └── utils/              # Cache, quota, and PDF generator utilities
-├── Dockerfile              # Multi-stage production container definition
-├── docker-compose.yml      # Local container orchestration
-├── nginx.conf              # SPA fallback routing configuration
-├── index.html
+│   ├── components/
+│   ├── context/
+│   ├── hooks/
+│   ├── pages/
+│   └── utils/
+├── Dockerfile
+├── docker-compose.yml
+├── nginx.conf
 ├── package.json
 └── vite.config.js
 ```
 
 ---
 
-# 📊 Incident Response & Alert Interpretation
+# 🌐 Live Demo
 
-## 1. UptimeRobot Downtime Alerts
+### Application
 
-### Notification
+https://flg-greenplate.vercel.app
 
-Webhook or email alert reporting:
+### CI/CD Pipeline
 
-```text
-DOWN (HTTP 500 / 502 / Timeout)
-```
-
-### Action Protocol
-
-1. Check the Vercel infrastructure status at `status.vercel.com`.
-2. Review the latest GitHub Actions workflow execution.
-3. Roll back immediately from the Vercel Dashboard if the issue is deployment-related.
+*(Insert a link to a successful GitHub Actions workflow run.)*
 
 ---
 
-## 2. Sentry Error Tracking Alerts
-
-### Notification
-
-Sentry issue alerts include:
-
-- Stack trace
-- Browser information
-- Component context
-- Environment metadata
-
-### Action Protocol
-
-1. Open Sentry and identify the source file and exception line.
-2. Create a hotfix branch:
-
-```bash
-git checkout -b fix/issue-description
-```
-
-3. Reproduce locally:
-
-```bash
-npm run vercel:dev
-```
-
-or
-
-```bash
-docker compose up
-```
-
-4. Open a Pull Request to `main`.
-5. Allow CI validation before automatic deployment.
-
----
-
-# 🎥 Live Demo & Submission Links
-
-- **Live Application**  
-  <https://flg-greenplate.vercel.app/>
-
-- **CI/CD Pipeline Run**  
-  *(Link to successful GitHub Actions workflow run will be inserted here.)*
-
----
-
-# 🔐 License
+# 📄 License
 
 This project is licensed under the MIT License.
 
@@ -342,15 +380,19 @@ See the `LICENSE` file for details.
 
 # 👨‍💻 Author
 
-Developed with ❤️ by **Filippo La Greca**
+**Filippo La Greca**
 
 ---
 
-# ✨ Acknowledgements
+# 🙏 Acknowledgements
 
-- Spoonacular API for recipe data
-- Upstash Redis for serverless rate limiting
-- jsPDF for client-side PDF generation
-- React, Vite, and Nginx Alpine
-- Vercel for serverless hosting
-- GitHub Actions for CI/CD automation
+- Spoonacular API
+- Upstash Redis
+- React
+- Vite
+- Docker
+- Nginx
+- Vercel
+- GitHub Actions
+- Sentry
+- UptimeRobot
