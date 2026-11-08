@@ -2,6 +2,18 @@
 
 [08/11/2026]
 
+## Step 6: Monitoring & Incident Simulation
+- [X] **Sentry Error Tracking:**
+  - [X] Install `@sentry/react`.
+  - [X] Initialize Sentry in `src/main.jsx` with `import.meta.env.VITE_SENTRY_DSN`.
+  - [X] Add a temporary crash trigger button (e.g., `throw new Error("DevOps Simulation Test")`).
+  - [X] Trigger the error in production and verify the event in Sentry Dashboard.
+  - [X] **Uptime Monitoring:**
+  - [X] Set up HTTP(s) monitor on UptimeRobot pointing to public Vercel URL (5-minute interval).
+  - [X] Verify initial 100% UP status.
+- [X] **Documentation:**
+  - [X] Add "Incident Response & Alert Interpretation" section to `README.md`.
+
 ## Step 5: Continuous Deployment (CD Pipeline & Public Deploy)
 - [X] Extend `ci-cd.yml` with `deploy-production` job (triggered only on push to `main` after CI succeeds).
 - [X] Configure Vercel CLI steps in workflow (`vercel pull`, `vercel build`, `vercel deploy`).
