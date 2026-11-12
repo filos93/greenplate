@@ -15,9 +15,7 @@ RUN npm ci
 COPY . .
 
 # Pass build-time environment variables required by Vite
-ARG VITE_SPOONACULAR_API_KEY
 ARG VITE_SENTRY_DSN
-ENV VITE_SPOONACULAR_API_KEY=$VITE_SPOONACULAR_API_KEY
 ENV VITE_SENTRY_DSN=$VITE_SENTRY_DSN
 
 # Compile static distribution artifacts (outputs to /app/dist)
