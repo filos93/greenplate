@@ -186,6 +186,16 @@ The application implements multiple security controls:
 - Client-side crashes
 - Serverless execution errors
 
+### Interpreting Sentry Alerts
+
+When Sentry triggers an email or dashboard notification, evaluate the following fields to determine severity and root cause:
+
+- **Issue Title & Exception Type:** Identifies the error class and message (e.g., `TypeError` for malformed API responses vs. `Error: DevOps Incident Simulation: Sentry Test Crash` for intentional pipeline verification).
+- **Environment & Release Tag:** Confirms whether the event occurred in `production` and links it to the exact deployed commit SHA.
+- **Stack Trace & Suspect Commit:** Pinpoints the exact component, file, and line number where execution failed.
+- **Events vs. Users Affected:** Distinguishes an isolated single-user glitch from a systemic production regression impacting all sessions.
+- **Breadcrumbs:** Displays the chronological trail of user clicks, route changes, and `/api/spoonacular` network requests immediately preceding the exception.
+
 ### Resolution Workflow
 
 1. Review issue details in Sentry
@@ -203,7 +213,7 @@ The application implements multiple security controls:
 ### Monitored Endpoint
 
 ```text
-https://flg-greenplate.vercel.app
+[https://flg-greenplate.vercel.app](https://flg-greenplate.vercel.app)
 ```
 
 ### Monitoring Frequency
@@ -211,6 +221,15 @@ https://flg-greenplate.vercel.app
 ```text
 Every 5 minutes
 ```
+
+### Interpreting UptimeRobot Alerts
+
+UptimeRobot sends a DOWN alert if consecutive HTTP checks fail or time out, followed by an UP alert once service recovers:
+
+- **HTTP 200 OK (UP):** Production frontend is reachable and responding within normal latency thresholds.
+- **HTTP 429 Too Many Requests:** Spoonacular API quota exhausted or Upstash Redis rate limiting triggered.
+- **HTTP 500 / 502 / 504 (DOWN):** Vercel serverless function failure, missing production environment secrets (SPOONACULAR_API_KEY, UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN), or upstream API timeout.
+- **Connection Timeout / DNS Failure (DOWN):** Vercel edge network disruption or domain routing issue.
 
 ### Resolution Workflow
 
