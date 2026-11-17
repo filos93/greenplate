@@ -1,13 +1,45 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { getRecipeAutocomplete, searchVegRecipes } from '../api/spoonacular';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { searchVegRecipes } from '../api/spoonacular';
 import { useDebounce } from '../hooks/useDebounce';
 import { useRecipeSearch } from '../hooks/useRecipeSearch';
 import { RecipeCard } from '../components/RecipeCard';
 import { QuotaBadge } from '../components/QuotaBadge';
 import { sanitizeInput, isValidSearchQuery } from '../utils/validators';
-import { canMakeApiCall, setQuotaExceeded } from '../utils/quota';
+import { getCachedRecipes } from '../utils/cache';
 import { StatusBanners } from '../components/StatusBanners';
+
+const STATIC_VEG_SUGGESTIONS = [
+  'Goat Cheese Pesto Pizza',
+  'Paneer Fig Pizza',
+  'Mini Vegetarian Puff Pastry Pizzas',
+  'Multigrain Tandoori Pizza With Paneer Tikka',
+  'Fig and Goat Cheese Pizza With Pesto',
+  'Zucchini Pizza Boats',
+  'Palak Tofu',
+  'Caramelized Tofu Gala Apple Salad',
+  'Malaysian Sambal Kangkong',
+  'Mushroom Risotto',
+  'Spinach Ricotta Ravioli',
+  'Eggplant Parmesan',
+  'Chickpea Curry',
+  'Lentil Soup',
+  'Caprese Salad',
+  'Margherita Pizza',
+  'Vegetable Stir Fry',
+  'Butternut Squash Soup',
+  'Black Bean Tacos',
+  'Sweet Potato Black Bean Chili',
+  'Cauliflower Fried Rice',
+  'Quinoa Stuffed Bell Peppers',
+  'Avocado Toast',
+  'Broccoli Cheddar Soup',
+  'Pesto Pasta',
+  'Falafel Wrap',
+  'Shakshuka',
+  'Vegetable Lasagna',
+  'Tofu Scramble'
+];
 
 const STOP_WORDS = new Set(['with', 'and', 'in', 'of', 'a', 'an', 'the', 'for', 'or', 'to']);
 
@@ -16,6 +48,17 @@ const stemWord = (word = '') => {
   if (word.endsWith('es')) return word.slice(0, -2);
   if (word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1);
   return word;
+};
+
+// Normalizes raw Spoonacular titles so every dropdown item passes isValidSearchQuery on click
+const toValidSuggestionTitle = (rawTitle = '') => {
+  const cleaned = rawTitle
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/[^a-zA-Z\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return isValidSearchQuery(cleaned) ? cleaned : '';
 };
 
 export const filterRecipes = (recipes = [], rawQuery = '') => {
@@ -56,13 +99,12 @@ export const filterRecipes = (recipes = [], rawQuery = '') => {
 
 export function VegSearch() {
   const [query, setQuery] = useState('');
-  const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [validationError, setValidationError] = useState('');
   const [userIsTyping, setUserIsTyping] = useState(false);
 
-  const debouncedQuery = useDebounce(query, 300);
+  const debouncedQuery = useDebounce(query, 200);
   const containerRef = useRef(null);
 
   const filterCacheCallback = useCallback((cachedItems, searchTerm) => {
@@ -76,70 +118,47 @@ export function VegSearch() {
     searched,
     setSearched,
     isQuotaExceeded,
-    setIsQuotaExceeded,
     isOffline,
-    setIsOffline,
     executeSearch,
-    filterLocalCache,
     resetToDefaultCache,
     quotaStats
   } = useRecipeSearch('search', searchVegRecipes, filterCacheCallback);
 
-  // Autocomplete fetcher effect
-  useEffect(() => {
-    let isMounted = true;
+  // Derived local-first autocomplete suggestions (Static list + cached recipe titles)
+  const suggestions = useMemo(() => {
+    const cleaned = sanitizeInput(debouncedQuery);
 
-    const fetchSuggestions = async () => {
-      const cleaned = sanitizeInput(debouncedQuery);
+    if (!userIsTyping || cleaned.length < 2 || !isValidSearchQuery(debouncedQuery)) {
+      return [];
+    }
 
-      if (!isValidSearchQuery(debouncedQuery)) {
-        if (isMounted) {
-          setSuggestions([]);
-          setShowSuggestions(false);
-        }
-        return;
+    const cachedRecipes = getCachedRecipes() || [];
+    const seen = new Set();
+    const pool = [];
+
+    for (const title of STATIC_VEG_SUGGESTIONS) {
+      const key = title.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        pool.push({ id: `static-${key}`, title });
       }
+    }
 
-      const hasQuota = canMakeApiCall('search');
+    for (const recipe of cachedRecipes) {
+      const validTitle = toValidSuggestionTitle(recipe?.title || '');
+      if (!validTitle) continue;
 
-      if (userIsTyping && cleaned.length >= 2 && hasQuota && !isQuotaExceeded && navigator.onLine) {
-        try {
-          const data = await getRecipeAutocomplete(cleaned);
-          if (isMounted) {
-            setSuggestions(data || []);
-            setShowSuggestions(true);
-            setSelectedIndex(-1);
-          }
-        } catch (error) {
-          if (isMounted) {
-            console.error('Failed to fetch suggestions:', error);
-
-            if (error.response?.status === 402 || error.response?.status === 429) {
-              setQuotaExceeded('search');
-              setIsQuotaExceeded(true);
-            } else if (!navigator.onLine || error.message === 'Network Error' || !error.response) {
-              setIsOffline(true);
-            }
-
-            // Hide suggestions silently without abruptly resetting main search results
-            setSuggestions([]);
-            setShowSuggestions(false);
-          }
-        }
-      } else {
-        if (isMounted) {
-          setSuggestions([]);
-          setShowSuggestions(false);
-        }
+      const key = validTitle.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        pool.push({ id: recipe.id || `cached-${key}`, title: validTitle });
       }
-    };
+    }
 
-    fetchSuggestions();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [debouncedQuery, userIsTyping, isQuotaExceeded, setIsQuotaExceeded, setIsOffline]);
+    return pool
+      .filter((item) => item.title.toLowerCase().includes(cleaned))
+      .slice(0, 6);
+  }, [debouncedQuery, userIsTyping]);
 
   // Click outside listener
   useEffect(() => {
@@ -156,13 +175,12 @@ export function VegSearch() {
     const rawVal = e.target.value;
     setQuery(rawVal);
     setUserIsTyping(true);
+    setShowSuggestions(true);
+    setSelectedIndex(-1);
 
     if (validationError) {
       setValidationError('');
     }
-
-    // Delegato interamente all'hook useRecipeSearch
-    filterLocalCache(rawVal);
   };
 
   const handleKeyDown = (e) => {
@@ -190,6 +208,7 @@ export function VegSearch() {
       setRecipes([]);
       setSearched(true);
       setShowSuggestions(false);
+      setSelectedIndex(-1);
       setUserIsTyping(false);
       return;
     }
@@ -201,13 +220,14 @@ export function VegSearch() {
       setRecipes([]);
       setSearched(true);
       setShowSuggestions(false);
+      setSelectedIndex(-1);
       setUserIsTyping(false);
       return;
     }
 
     setUserIsTyping(false);
     setShowSuggestions(false);
-    setSuggestions([]);
+    setSelectedIndex(-1);
     setValidationError('');
 
     executeSearch(cleaned);
@@ -249,8 +269,8 @@ export function VegSearch() {
               type="button" 
               onClick={() => {
                 setQuery('');
-                setSuggestions([]);
                 setShowSuggestions(false);
+                setSelectedIndex(-1);
                 setValidationError('');
                 setUserIsTyping(false);
                 resetToDefaultCache();

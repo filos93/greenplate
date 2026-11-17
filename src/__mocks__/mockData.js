@@ -85,14 +85,6 @@ export const mockFridgeResultsData = [
   }
 ];
 
-export const mockAutocompleteSuggestionsData = [
-  { id: 10, title: 'Spinach Pasta' },
-  { id: 11, title: 'Spinach Salad' },
-  { id: 12, title: 'Spinach Soup' },
-  { id: 13, title: 'Tofu Curry' },
-  { id: 14, title: 'Vegetable Stir Fry' }
-];
-
 export const mockPopularIngredientsData = [
   { id: 1, name: 'Spinach' },
   { id: 2, name: 'Garlic' },

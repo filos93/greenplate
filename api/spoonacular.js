@@ -96,16 +96,7 @@ export default async function handler(req, res) {
         params.sort = sort.trim().slice(0, 30);
       }
     } 
-    // Action 2: Autocomplete suggestions
-    else if (action === 'autocomplete') {
-      targetUrl = `${BASE_URL}/autocomplete`;
-      params.number = 5;
-
-      if (query && typeof query === 'string') {
-        params.query = query.trim().slice(0, 100);
-      }
-    }
-    // Action 3: Detailed recipe information
+    // Action 2: Detailed recipe information
     else if (action === 'information') {
       const parsedId = parseInt(id, 10);
       if (!id || Number.isNaN(parsedId) || parsedId <= 0) {
