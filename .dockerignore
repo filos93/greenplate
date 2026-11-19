@@ -1,0 +1,25 @@
+# Dependencies & build artifacts (rebuilt cleanly inside container)
+node_modules
+dist
+
+# Local environment & Vercel CLI cache
+.env
+.env.*
+.vercel
+
+# Version control & CI/CD
+.git
+.gitignore
+.github
+
+# Docker files (not needed inside build context)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Documentation & editor metadata
+README.md
+*.md
+.vscode
+.idea
+.DS_Store

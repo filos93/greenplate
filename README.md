@@ -29,7 +29,6 @@ The project demonstrates a complete software delivery lifecycle, from local deve
 ### 🔎 Recipe Discovery
 
 - Vegetarian recipe search powered by Spoonacular
-- Live search autocomplete
 - Detailed ingredients and cooking instructions
 - Input validation and sanitization
 
@@ -212,9 +211,7 @@ When Sentry triggers an email or dashboard notification, evaluate the following 
 
 ### Monitored Endpoint
 
-```text
-[https://flg-greenplate.vercel.app](https://flg-greenplate.vercel.app)
-```
+https://flg-greenplate.vercel.app
 
 ### Monitoring Frequency
 
@@ -300,25 +297,26 @@ UPSTASH_REDIS_REST_TOKEN=your_upstash_token
 npm run vercel:dev
 ```
 
-Application URL:
-
-```text
-http://localhost:3000
-```
+Application URL: http://localhost:3000 
 
 ---
 
 ## Docker Deployment
 
+Runs the production Nginx static bundle on port `8080` and transparently reverse-proxies `/api/*` requests to the hosted Vercel serverless backend (no `.env.local` required):
+
 ```bash
+# Build and start in detached mode
 docker compose up --build -d
+
+# Check container status
+docker compose ps
+
+# Stop and remove containers
+docker compose down
 ```
 
-Access:
-
-```text
-http://localhost:8080
-```
+Access: http://localhost:8080
 
 ---
 
@@ -328,11 +326,7 @@ http://localhost:8080
 npm run dev
 ```
 
-Access:
-
-```text
-http://localhost:5173
-```
+Access: http://localhost:5173
 
 ---
 
@@ -368,6 +362,7 @@ greenplate/
 │   ├── hooks/
 │   ├── pages/
 │   └── utils/
+├── .dockerignore
 ├── Dockerfile
 ├── docker-compose.yml
 ├── nginx.conf
@@ -385,7 +380,7 @@ https://flg-greenplate.vercel.app
 
 ### CI/CD Pipeline
 
-*(Insert a link to a successful GitHub Actions workflow run.)*
+https://github.com/filos93/greenplate/actions
 
 ---
 
